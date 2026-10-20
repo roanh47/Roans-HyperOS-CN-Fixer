@@ -56,6 +56,22 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
+      # Every release has to be signed with the same key, otherwise Android
+      # refuses to install it over the previous one. The keystore lives in
+      # repository secrets and never in the tree.
+      - name: Materialise the signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.CNFIXER_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/cnfixer-release.jks"
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$KEYSTORE_PATH"
+            echo "CNFIXER_KEYSTORE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+            echo "Signing with the stored release keystore"
+          else
+            echo "::warning::CNFIXER_KEYSTORE_B64 is missing, this APK gets a throwaway key and will not update over an existing install"
+          fi
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
@@ -63,18 +79,36 @@ jobs:
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Build debug APK
+        env:
+          CNFIXER_KEYSTORE_PASSWORD: ${{ secrets.CNFIXER_KEYSTORE_PASSWORD }}
+          CNFIXER_KEY_ALIAS: ${{ secrets.CNFIXER_KEY_ALIAS }}
+          CNFIXER_KEY_PASSWORD: ${{ secrets.CNFIXER_KEY_PASSWORD }}
         run: ./gradlew assembleDebug --stacktrace
+
+      # Android shows the asset filename when installing, and an asset called
+      # app-debug.apk from three different releases is confusing, so the file
+      # carries the version. The version is read from the build, not typed.
+      - name: Name the APK after its version
+        id: apk
+        run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          NAME="Roans-HyperOS-CN-Fixer-${VERSION}.apk"
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "path=dist/$NAME" >> "$GITHUB_OUTPUT"
+          ls -l dist
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v7
         with:
-          name: cnfixer-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
 
       - name: Attach APK to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          files: app/build/outputs/apk/debug/*.apk
+          files: ${{ steps.apk.outputs.path }}
           generate_release_notes: true

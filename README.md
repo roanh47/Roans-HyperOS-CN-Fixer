@@ -30,12 +30,18 @@ PowerKeeper rewrites that list, so a recovery task runs every 15 minutes. Per ap
 
 The screen also has a **Run checks** button. It reads the values back from the device, so you see whether the repair is actually in place instead of trusting an exit code.
 
+**Apply now** does not replace the schedule. It runs one pass immediately, while the background task keeps repeating it. The card shows **Last check**, so you can see the protection is still being renewed.
+
+Settings also has a **Send test notification**. That one proves the local notification path: channel, permission, Do Not Disturb. It is not an FCM push. A real push needs this app's own Firebase project, a registration token and a service account that is allowed to send.
+
 ### Screenshot mover
 Xiaomi writes screenshots to `DCIM/Screenshots`, which makes Google Photos treat them as camera photos. A `.nomedia` file does not work on Xiaomi.
 
-The app moves new screenshots to a folder you pick (for example `Pictures/Screenshots`), so Google Photos shows it as a separate device folder you can switch off.
+There is nothing to configure: the source is always `DCIM/Screenshots` and the target is always `Pictures/Screenshots`, so Google Photos shows that as a separate device folder you can switch off.
 
-Background moving is a switch. When it is on, the move runs every 15 minutes through WorkManager, also when the app is closed. No `MANAGE_EXTERNAL_STORAGE` on purpose: only a persistent SAF grant on exactly two folders, which is the trap FolderSync runs into.
+The move runs with the Shizuku shell user, which means this fix needs no storage permission at all and no folder picker.
+
+Background moving is a switch. When it is on, the move runs every 15 minutes through WorkManager, also when the app is closed.
 
 Files with `.pending` in the name are skipped. The camera app writes a temporary file first and renames it afterwards.
 
@@ -87,7 +93,9 @@ export ANDROID_HOME=$HOME/Android/Sdk
 
 The APK lands in `app/build/outputs/apk/debug/`.
 
-**CI:** every push to `main` builds a debug APK as an artifact. A `v*` tag attaches the APK to a GitHub Release.
+**CI:** every push to `main` builds a debug APK as an artifact named after the version. A `v*` tag attaches that same file to a GitHub Release.
+
+**Signing:** every build uses one keystore, taken from the repository secrets `CNFIXER_KEYSTORE_B64`, `CNFIXER_KEYSTORE_PASSWORD`, `CNFIXER_KEY_ALIAS` and `CNFIXER_KEY_PASSWORD`. That is not cosmetic: Android refuses to install an APK signed with a different key over an existing install, which shows up as "conflicting signature". Keep that keystore safe. Without it the build falls back to a throwaway debug key and updates stop working.
 
 ---
 

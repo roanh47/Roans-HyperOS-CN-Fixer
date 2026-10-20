@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,19 +32,46 @@ import nl.roanheemstra.cnfixer.fcm.FcmApp
 import nl.roanheemstra.cnfixer.fcm.FcmAppScanner
 import nl.roanheemstra.cnfixer.fcm.FcmEnforcer
 import nl.roanheemstra.cnfixer.fcm.FcmVerifier
+import nl.roanheemstra.cnfixer.fcm.MilletList
+import nl.roanheemstra.cnfixer.mover.SafStore
+import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+/**
+ * Mirrors the wording of the reference app: protection is applied periodically,
+ * not once. "Apply now" runs the same pass the background task runs.
+ */
 @Composable
 fun FcmScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val store = remember { SafStore(context) }
+
+    val lastRun by store.lastFcmRun.collectAsState(initial = 0L)
+    val lastOk by store.lastFcmOk.collectAsState(initial = false)
 
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var apps by remember { mutableStateOf<List<FcmApp>>(emptyList()) }
     var checks by remember { mutableStateOf<List<FcmVerifier.Check>>(emptyList()) }
+    var exempt by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    LaunchedEffect(Unit) { ShizukuState.refresh() }
+    fun refreshExemptList() {
+        scope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                ShellRunner.exec("settings", "get", "system", MilletList.KEY)
+            }
+            exempt = if (raw.ok) MilletList.parse(raw.out) else emptyList()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        ShizukuState.refresh()
+        refreshExemptList()
+    }
 
     Column(
         modifier = Modifier
@@ -61,10 +89,41 @@ fun FcmScreen() {
             )
         }
 
-        SectionCard("Repair") {
+        SectionCard("Protection") {
+            StatusRow(
+                label = "Google Play services",
+                value = if (lastRun > 0L && lastOk) "protected" else "not verified",
+                level = if (lastRun > 0L && lastOk) StatusLevel.OK else StatusLevel.WARN,
+            )
+            StatusRow(
+                label = "Last check",
+                value = if (lastRun == 0L) {
+                    "never"
+                } else {
+                    val stamp = SimpleDateFormat("d MMM HH:mm", Locale.ENGLISH).format(Date(lastRun))
+                    (if (lastOk) "successful " else "failed ") + stamp
+                },
+                level = if (lastRun > 0L && lastOk) StatusLevel.OK else StatusLevel.WARN,
+            )
             Text(
-                "Puts com.google.android.gms back on the no-restrict list and removes the " +
-                    "Greezer limiter. This is what HyperOS reverts after a reboot or an OTA.",
+                "HyperOS reverts these values after every reboot and after an OTA. That is why " +
+                    "the protection is re-applied on a schedule instead of once, and why the date " +
+                    "above moves while the phone is on.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard("Automatic enforcement") {
+            StatusRow(
+                label = "Frequency",
+                value = "every 15 minutes",
+                level = if (ShizukuState.granted) StatusLevel.OK else StatusLevel.WARN,
+            )
+            Text(
+                "The background task repeats the same pass. Without it HyperOS quietly stops " +
+                    "FCM again within an hour. Apply now runs that pass immediately, it does not " +
+                    "replace the schedule.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -75,6 +134,7 @@ fun FcmScreen() {
                     busy = true
                     scope.launch {
                         val report = withContext(Dispatchers.IO) { FcmEnforcer.runCorePass() }
+                        withContext(Dispatchers.IO) { store.recordFcmRun(report.ok) }
                         log = buildString {
                             report.steps.forEach { step ->
                                 append(if (step.result.ok) "OK   " else "FAIL ")
@@ -84,20 +144,55 @@ fun FcmScreen() {
                                 append('\n')
                             }
                         }
+                        refreshExemptList()
                         ShizukuState.refresh()
                         busy = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Run repair")
+                Text("Apply now")
             }
         }
 
-        SectionCard("Verify") {
+        SectionCard("Exempt from HyperOS restrictions") {
             Text(
-                "Reads the values back from the device. A green check means the change is " +
-                    "actually in place, not just that a command exited with zero.",
+                "MILLET_NO_RESTRICT_APP, the list HyperOS reads to decide what may keep running.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            StatusRow(
+                label = "Entries",
+                value = exempt.size.toString(),
+                level = if (exempt.isNotEmpty()) StatusLevel.OK else StatusLevel.WARN,
+            )
+            StatusRow(
+                label = "Google Play services",
+                value = if (MilletList.GMS in exempt) "in the list" else "missing",
+                level = if (MilletList.GMS in exempt) StatusLevel.OK else StatusLevel.ERROR,
+            )
+            if (exempt.isNotEmpty()) {
+                Text(
+                    exempt.joinToString(", "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                enabled = !busy && ShizukuState.granted,
+                onClick = { refreshExemptList() },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Refresh status")
+            }
+        }
+
+        SectionCard("Check status") {
+            Text(
+                "Reads the values back from the device. A pass means the change is in place right " +
+                    "now, not that a command exited with zero.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

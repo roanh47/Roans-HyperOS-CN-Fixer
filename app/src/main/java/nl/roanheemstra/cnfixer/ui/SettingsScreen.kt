@@ -1,5 +1,9 @@
 package nl.roanheemstra.cnfixer.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,17 +28,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import nl.roanheemstra.cnfixer.BuildConfig
 import nl.roanheemstra.cnfixer.PowerHelper
+import nl.roanheemstra.cnfixer.fcm.NotificationTest
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
 @Composable
 fun SettingsScreen(onStartSetup: () -> Unit) {
     val context = LocalContext.current
     var ignoringBattery by remember { mutableStateOf(false) }
+    var notificationPermission by remember { mutableStateOf(NotificationTest.hasPermission(context)) }
+    var notificationLog by remember { mutableStateOf("") }
     var refreshTick by remember { mutableStateOf(0) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notificationPermission = granted
+        notificationLog = if (granted) "Notification permission granted." else "Notification permission denied."
+    }
 
     LaunchedEffect(refreshTick) {
         ShizukuState.refresh()
         ignoringBattery = PowerHelper.isIgnoringBatteryOptimizations(context)
+        notificationPermission = NotificationTest.hasPermission(context)
     }
 
     Column(
@@ -59,6 +74,39 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
             Button(onClick = onStartSetup, modifier = Modifier.fillMaxWidth()) {
                 Text("Start setup")
             }
+        }
+
+        SectionCard("Notifications") {
+            StatusRow(
+                label = "Permission",
+                value = if (notificationPermission) "granted" else "not granted",
+                level = if (notificationPermission) StatusLevel.OK else StatusLevel.WARN,
+            )
+            Text(
+                "This sends a local notification: it proves the channel, the permission and Do " +
+                    "Not Disturb behave. It is not an FCM push. For a real push this app needs its " +
+                    "own Firebase project with a service account, because a push can only be sent " +
+                    "to a token that belongs to you.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            if (notificationPermission) {
+                OutlinedButton(
+                    onClick = { notificationLog = NotificationTest.send(context) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Send test notification") }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Allow notifications") }
+            }
+            LogBox(notificationLog)
         }
 
         SectionCard("Keeping the app alive") {
@@ -126,7 +174,7 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
 
         SectionCard("Version") {
             Text(
-                BuildConfig.VERSION_NAME,
+                "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

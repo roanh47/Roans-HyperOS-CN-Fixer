@@ -24,12 +24,12 @@ import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
 enum class FixId(val title: String, val summary: String) {
     FCM(
-        title = "Push notifications",
-        summary = "Repair FCM for Google Play services after a reboot or an OTA",
+        title = "Google Play services protection",
+        summary = "Re-applied every 15 minutes, because HyperOS resets it after a reboot",
     ),
     SCREENSHOTS(
         title = "Screenshot mover",
-        summary = "Move screenshots out of DCIM into Pictures on a schedule",
+        summary = "Moves DCIM/Screenshots to Pictures/Screenshots every 15 minutes",
     ),
     CIRCLE_TO_SEARCH(
         title = "Circle to Search",
