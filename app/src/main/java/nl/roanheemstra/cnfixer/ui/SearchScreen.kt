@@ -58,50 +58,50 @@ fun SearchScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Circle to Search", style = MaterialTheme.typography.headlineMedium)
+        if (!ShizukuState.granted) {
+            Text(
+                "Shizuku access is missing. Grant it in Settings first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
 
         SectionCard("Status") {
             StatusRow(
-                label = "MiCTS geïnstalleerd",
-                value = if (micTsInstalled) "ja" else "nee",
+                label = "MiCTS installed",
+                value = if (micTsInstalled) "yes" else "no",
                 level = if (micTsInstalled) StatusLevel.OK else StatusLevel.WARN,
             )
             StatusRow(
-                label = "Shizuku-rechten",
-                value = if (ShizukuState.granted) "gegeven" else "ontbreken",
-                level = if (ShizukuState.granted) StatusLevel.OK else StatusLevel.ERROR,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = if (currentAssistant.isBlank()) "assistent: onbekend" else "assistent: $currentAssistant",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                label = "Current assistant",
+                value = currentAssistant.ifBlank { "unknown" },
+                level = StatusLevel.OK,
             )
         }
 
-        SectionCard("Waarom dit zo werkt") {
+        SectionCard("Why it works this way") {
             Text(
-                "MiCTS alleen openen is niet genoeg: HyperOS geeft de app dan geen " +
-                    "assist-context en de Omni-aanroep faalt. Daarom registreert deze app " +
-                    "MiCTS als de standaard assistent, zodat de assist-gesture via MiCTS loopt.",
+                "Opening MiCTS alone is not enough: HyperOS then gives the app no assist context " +
+                    "and the Omni call fails. That is why this app registers MiCTS as the default " +
+                    "assistant, so the assist gesture runs through MiCTS.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "HyperOS zet deze waarde na elke reboot terug. De achtergrondtaak zet hem " +
-                    "opnieuw zodra Shizuku weer draait.",
+                "HyperOS resets this value on every reboot. The background work sets it again as " +
+                    "soon as Shizuku is running.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        SectionCard("Instelling") {
+        SectionCard("Setting") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("MiCTS als assistent", style = MaterialTheme.typography.bodyLarge)
+                    Text("MiCTS as assistant", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Opnieuw toepassen na elke reboot",
+                        "Re-apply after every reboot",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -113,7 +113,7 @@ fun SearchScreen() {
                             store.setAssistantOverride(enabled)
                             if (enabled) {
                                 val result = withContext(Dispatchers.IO) { AssistantOverride.apply() }
-                                log = if (result.ok) "Toegepast." else "Mislukt: ${result.summary()}"
+                                log = if (result.ok) "Applied." else "Failed: ${result.summary()}"
                                 currentAssistant = withContext(Dispatchers.IO) {
                                     AssistantOverride.current().out
                                 }
@@ -130,25 +130,25 @@ fun SearchScreen() {
                 scope.launch {
                     val result = withContext(Dispatchers.IO) { AssistantOverride.apply() }
                     log = if (result.ok) {
-                        "Toegepast. Houd nu je gesture-balk of home-knop lang ingedrukt."
+                        "Applied. Now long press your gesture bar or home button."
                     } else {
-                        "Mislukt: ${result.summary()}"
+                        "Failed: ${result.summary()}"
                     }
                     currentAssistant = withContext(Dispatchers.IO) { AssistantOverride.current().out }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Nu toepassen")
+            Text("Apply now")
         }
 
         LogBox(log)
 
-        SectionCard("Als het niet werkt") {
+        SectionCard("When it does not work") {
             Text(
-                "Meldt Google 'Omni invocation failed: not enabled', dan heeft Google Circle " +
-                    "to Search voor dit model uitgeschakeld. Dat is alleen te omzeilen met " +
-                    "root (LSPosed + device spoof). Zonder root stopt het hier.",
+                "If Google reports 'Omni invocation failed: not enabled', Google has disabled " +
+                    "Circle to Search for this model. That is only bypassable with root " +
+                    "(LSPosed and device spoofing). Without root it stops here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

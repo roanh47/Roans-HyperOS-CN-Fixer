@@ -2,14 +2,13 @@ package nl.roanheemstra.cnfixer
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -17,78 +16,123 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import nl.roanheemstra.cnfixer.shizuku.ShizukuState
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
+import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 import nl.roanheemstra.cnfixer.ui.CnFixerTheme
-import nl.roanheemstra.cnfixer.ui.FcmScreen
-import nl.roanheemstra.cnfixer.ui.InfoScreen
-import nl.roanheemstra.cnfixer.ui.MoverScreen
-import nl.roanheemstra.cnfixer.ui.SearchScreen
+import nl.roanheemstra.cnfixer.ui.FixHost
+import nl.roanheemstra.cnfixer.ui.FixId
+import nl.roanheemstra.cnfixer.ui.FixesScreen
+import nl.roanheemstra.cnfixer.ui.SettingsScreen
+import nl.roanheemstra.cnfixer.ui.SetupScreen
 import nl.roanheemstra.cnfixer.worker.Scheduler
 import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
 
+    /** Compose state so the first-run guide can be shown without blocking launch. */
+    private var showSetup by mutableStateOf(false)
+
     private val permissionListener =
         Shizuku.OnRequestPermissionResultListener { requestCode, _ ->
-            if (requestCode == nl.roanheemstra.cnfixer.shizuku.ShellRunner.REQUEST_CODE) {
+            if (requestCode == ShellRunner.REQUEST_CODE) {
                 ShizukuState.refresh()
             }
         }
+
+    private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
+        // Shizuku was started while this app is open: ask right away.
+        ShizukuState.autoRequestOnce()
+    }
+
+    private val binderDeadListener = Shizuku.OnBinderDeadListener {
+        ShizukuState.refresh()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         runCatching { Shizuku.addRequestPermissionResultListener(permissionListener) }
+        runCatching { Shizuku.addBinderReceivedListener(binderReceivedListener) }
+        runCatching { Shizuku.addBinderDeadListener(binderDeadListener) }
         ShellRunner.init(this)
         ShizukuState.refresh()
-        runCatching { Scheduler.ensureScheduled(this) }
+
+        val store = SafStore(this)
+        lifecycleScope.launch {
+            // First launch: walk through the setup. Afterwards only on request.
+            showSetup = !store.setupDone.first()
+            runCatching { Scheduler.syncFromPrefs(this@MainActivity) }
+        }
 
         setContent {
             CnFixerTheme {
                 var tab by rememberSaveable { mutableIntStateOf(0) }
+                var openFixName by rememberSaveable { mutableStateOf<String?>(null) }
+                val openFix = openFixName?.let { name ->
+                    FixId.entries.firstOrNull { it.name == name }
+                }
+
+                BackHandler(enabled = openFix != null) { openFixName = null }
+
+                val setupVisible = showSetup
+
+                BackHandler(enabled = setupVisible) {
+                    lifecycleScope.launch { store.setSetupDone(true) }
+                    showSetup = false
+                }
 
                 Scaffold(
                     bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = tab == 0,
-                                onClick = { tab = 0 },
-                                icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
-                                label = { Text(stringResource(R.string.tab_fcm)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 1,
-                                onClick = { tab = 1 },
-                                icon = { Icon(Icons.Filled.Folder, contentDescription = null) },
-                                label = { Text(stringResource(R.string.tab_mover)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 2,
-                                onClick = { tab = 2 },
-                                icon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                                label = { Text(stringResource(R.string.tab_search)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 3,
-                                onClick = { tab = 3 },
-                                icon = { Icon(Icons.Filled.Info, contentDescription = null) },
-                                label = { Text(stringResource(R.string.tab_info)) },
-                            )
+                        if (!setupVisible) {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    selected = tab == 0,
+                                    onClick = {
+                                        tab = 0
+                                        openFixName = null
+                                    },
+                                    icon = { Icon(Icons.Filled.Build, contentDescription = null) },
+                                    label = { Text(stringResource(R.string.tab_fixes)) },
+                                )
+                                NavigationBarItem(
+                                    selected = tab == 1,
+                                    onClick = {
+                                        tab = 1
+                                        openFixName = null
+                                    },
+                                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                                    label = { Text(stringResource(R.string.tab_settings)) },
+                                )
+                            }
                         }
                     }
                 ) { padding ->
                     Box(Modifier.padding(padding)) {
-                        when (tab) {
-                            0 -> FcmScreen()
-                            1 -> MoverScreen()
-                            2 -> SearchScreen()
-                            else -> InfoScreen()
+                        when {
+                            setupVisible -> SetupScreen(
+                                onDone = {
+                                    lifecycleScope.launch { store.setSetupDone(true) }
+                                    showSetup = false
+                                }
+                            )
+
+                            openFix != null -> FixHost(openFix) { openFixName = null }
+
+                            tab == 0 -> FixesScreen(
+                                onOpen = { openFixName = it.name },
+                                onOpenSettings = { tab = 1 },
+                            )
+
+                            else -> SettingsScreen(onStartSetup = { showSetup = true })
                         }
                     }
                 }
@@ -98,11 +142,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        ShizukuState.refresh()
+        // Covers coming back from the Shizuku app: refresh, then ask once.
+        ShizukuState.autoRequestOnce()
     }
 
     override fun onDestroy() {
         runCatching { Shizuku.removeRequestPermissionResultListener(permissionListener) }
+        runCatching { Shizuku.removeBinderReceivedListener(binderReceivedListener) }
+        runCatching { Shizuku.removeBinderDeadListener(binderDeadListener) }
         super.onDestroy()
     }
 }

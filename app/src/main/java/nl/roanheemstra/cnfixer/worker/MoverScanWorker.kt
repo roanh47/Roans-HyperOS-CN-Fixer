@@ -15,6 +15,11 @@ class MoverScanWorker(
 
     override suspend fun doWork(): Result {
         val store = SafStore(applicationContext)
+
+        // The user can switch background moving off without us cancelling
+        // reliably from every entry point, so check the preference as well.
+        if (!store.moverAuto.first()) return Result.success()
+
         val source = store.source.first() ?: return Result.success()
         val destination = store.destination.first() ?: return Result.success()
 

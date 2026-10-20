@@ -39,21 +39,39 @@ object Scheduler {
     private const val FCM_WORK = "cnfixer-fcm-recovery"
     private const val MOVER_WORK = "cnfixer-mover-scan"
 
+    /** WorkManager's floor is 15 minutes; that is what this app uses. */
+    const val INTERVAL_MINUTES = 15L
+
     fun ensureScheduled(context: Context) {
         val workManager = WorkManager.getInstance(context)
 
-        val fcm = PeriodicWorkRequestBuilder<FcmRecoveryWorker>(15, TimeUnit.MINUTES).build()
+        val fcm = PeriodicWorkRequestBuilder<FcmRecoveryWorker>(INTERVAL_MINUTES, TimeUnit.MINUTES)
+            .build()
         workManager.enqueueUniquePeriodicWork(
             FCM_WORK,
             ExistingPeriodicWorkPolicy.UPDATE,
             fcm,
         )
+    }
 
-        val mover = PeriodicWorkRequestBuilder<MoverScanWorker>(15, TimeUnit.MINUTES).build()
+    /** Enables or disables the background screenshot mover. */
+    fun refreshMover(context: Context, enabled: Boolean) {
+        val workManager = WorkManager.getInstance(context)
+        if (!enabled) {
+            workManager.cancelUniqueWork(MOVER_WORK)
+            return
+        }
+        val mover = PeriodicWorkRequestBuilder<MoverScanWorker>(INTERVAL_MINUTES, TimeUnit.MINUTES)
+            .build()
         workManager.enqueueUniquePeriodicWork(
             MOVER_WORK,
             ExistingPeriodicWorkPolicy.UPDATE,
             mover,
         )
+    }
+
+    suspend fun syncFromPrefs(context: Context) {
+        ensureScheduled(context)
+        refreshMover(context, SafStore(context).moverAuto.first())
     }
 }

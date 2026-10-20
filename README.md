@@ -1,102 +1,112 @@
 # Roans-HyperOS-CN-Fixer
 
-Een Android-app die de twee grootste pijnpunten van een Xiaomi **China-ROM** oplost. Gebouwd voor toestellen die geïmporteerd zijn en waar de Play Store, Google-services en push-notificaties niet vanzelf werken.
+An Android app that fixes the two biggest problems of a Xiaomi **China ROM**. Built for imported devices where the Play Store, Google services and push notifications do not work out of the box.
 
-**Geen root nodig.** De app gebruikt [Shizuku](https://shizuku.rikumo.com/) voor ADB-shell-rechten en de Storage Access Framework voor bestandstoegang.
-
----
-
-## Wat de app doet
-
-### 1. FCM-notificaties — `FCM`-tab
-HyperOS op een China-ROM is gebouwd rond Mi Push en knijpt Google Play services af. Daardoor vallen push-notificaties weg zodra het scherm uit gaat.
-
-De app repareert dit met dezelfde mechanismen als het bewezen [hyperos-fcm-fix](https://github.com/dingwen07/hyperos-fcm-fix)-project:
-
-- houdt `com.google.android.gms` in HyperOS' verborgen `MILLET_NO_RESTRICT_APP`-lijst
-- haalt de Greezer-limiter van GMS af (`dumpsys greezer IM GMS disable`)
-- zet per app de MIUI-autostart AppOps (`10008`, `10053`)
-- kan per app de batterijpolicy zetten (Optimized / Unrestricted / Restricted)
-
-Omdat PowerKeeper de lijst herschrijft, draait er een herstelstaak elke 15 minuten. Per-app-instellingen blijven staan, want die slaat Android zelf op in AppOps.
-
-### 2. Screenshots — `Screenshots`-tab
-Xiaomi zet screenshots in `DCIM/Screenshots`, waardoor Google Photos ze bij de camerafoto's gooit. Een `.nomedia`-bestand werkt op Xiaomi niet.
-
-De app verplaatst nieuwe screenshots naar een map die je zelf kiest (bijvoorbeeld `Pictures/Screenshots`), zodat het in Google Photos een **aparte device-folder** wordt die je los kunt uitzetten.
-
-Bewust **zonder** `MANAGE_EXTERNAL_STORAGE`: alleen een persistente SAF-grant op precies twee mappen. Dat is de val waar FolderSync in loopt.
-
-Bestanden met `.pending` in de naam worden overgeslagen — de camera-app schrijft eerst een tijdelijk bestand en hernoemt dat daarna.
-
-### 3. Circle to Search — `Zoeken`-tab
-Werkt samen met [MiCTS](https://github.com/parallelcc/MiCTS). MiCTS kaal openen is op een CN-ROM niet genoeg: de assist-context ontbreekt en de Omni-aanroep faalt. Deze app registreert MiCTS daarom als **standaard assistent**, zodat de assist-gesture via MiCTS loopt.
-
-HyperOS zet die waarde na elke reboot terug; de herstelstaak zet hem opnieuw zodra Shizuku draait.
+**No root required.** The app uses [Shizuku](https://shizuku.rikumo.com/) for ADB shell access and the Storage Access Framework for file access.
 
 ---
 
-## Wat de app **niet** kan oplossen
+## How the app is organised
 
-Deze staan bewust in de app vermeld, zodat niemand iets belooft wat niet kan:
+Two tabs. **Fixes** is a list of every fix, tap one to open it. **Settings** holds Shizuku, battery and autostart, the setup guide and the limitations.
 
-| Probleem | Waarom niet |
+On first launch the setup guide opens by itself. You can replay it any time from Settings with **Start setup**, which does not reset what you configured.
+
+---
+
+## The fixes
+
+### Push notifications
+HyperOS on a China ROM is built around Mi Push and squeezes Google Play services. Push notifications stop as soon as the screen goes off.
+
+The app repairs this with the same mechanisms as the proven [hyperos-fcm-fix](https://github.com/dingwen07/hyperos-fcm-fix) project:
+
+- keeps `com.google.android.gms` in the hidden `MILLET_NO_RESTRICT_APP` list
+- removes the Greezer limiter from GMS (`dumpsys greezer IM GMS disable`)
+- sets the MIUI autostart AppOps per app (`10008`, `10053`)
+- can set the battery policy per app (Optimized, Unrestricted, Restricted)
+
+PowerKeeper rewrites that list, so a recovery task runs every 15 minutes. Per app settings survive, because Android stores those in AppOps itself.
+
+The screen also has a **Run checks** button. It reads the values back from the device, so you see whether the repair is actually in place instead of trusting an exit code.
+
+### Screenshot mover
+Xiaomi writes screenshots to `DCIM/Screenshots`, which makes Google Photos treat them as camera photos. A `.nomedia` file does not work on Xiaomi.
+
+The app moves new screenshots to a folder you pick (for example `Pictures/Screenshots`), so Google Photos shows it as a separate device folder you can switch off.
+
+Background moving is a switch. When it is on, the move runs every 15 minutes through WorkManager, also when the app is closed. No `MANAGE_EXTERNAL_STORAGE` on purpose: only a persistent SAF grant on exactly two folders, which is the trap FolderSync runs into.
+
+Files with `.pending` in the name are skipped. The camera app writes a temporary file first and renames it afterwards.
+
+### Circle to Search
+Works with [MiCTS](https://github.com/parallelcc/MiCTS). Opening MiCTS alone is not enough on a China ROM: the assist context is missing and the Omni call fails. This app registers MiCTS as the **default assistant**, so the assist gesture runs through MiCTS.
+
+HyperOS resets that value on every reboot. The recovery task sets it again as soon as Shizuku is running.
+
+---
+
+## What the app **cannot** fix
+
+These are listed inside the app on purpose, so nobody promises what cannot work:
+
+| Problem | Why not |
 |---|---|
-| Android Auto | System stubs ontbreken; APK installeren is niet genoeg |
-| Google Wallet / NFC betalen | Play Services herkent de Chinese SKU en zet TapAndPay uit |
-| Power-knop → Gemini | Power-key events gaan naar het systeem; geen app kan die onderscheppen |
-| LTE Band 20 (800 MHz) | Hardware — ontbreekt op veel CN-modellen |
-| eSIM | Niet ondersteund op CN-modellen |
-| Bootloader unlock | Bij CN-modellen praktisch dichtgetimmerd |
+| Android Auto | System stubs are missing, installing an APK is not enough |
+| Google Wallet and NFC payments | Play Services detects the Chinese SKU and turns TapAndPay off |
+| Power button to Gemini | Power key events go to the system, no app can intercept them |
+| LTE Band 20 (800 MHz) | Hardware, missing on many CN models |
+| eSIM | Not supported on CN models |
+| Bootloader unlock | Effectively closed on CN models |
 
 ---
 
-## Installatie
+## Setup
 
-1. Installeer [Shizuku](https://github.com/RikkaApps/Shizuku/releases) en start hem via wireless debugging
-2. Installeer de APK uit [Releases](../../releases)
-3. Open de app en geef Shizuku-rechten
-4. Zet de app op **Geen beperkingen** in batterijbeheer (Instellingen → Apps → CN Fixer → Batterijbesparingen)
+1. Install [Shizuku](https://github.com/RikkaApps/Shizuku/releases) and start it through wireless debugging
+2. Install the APK from [Releases](../../releases)
+3. Open the app and follow the setup guide: it walks through Shizuku, access, battery and autostart
+4. Allow unrestricted battery in Settings, and set Autostart on in the Xiaomi security app
 
-Voor Circle to Search heb je daarnaast de [Google-app](https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox) en [MiCTS](https://github.com/parallelcc/MiCTS/releases) nodig.
+For Circle to Search you also need the [Google app](https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox) and [MiCTS](https://github.com/parallelcc/MiCTS/releases).
 
-> Na een reboot moet Shizuku opnieuw gestart worden. Zodra dat gebeurd is, herstelt de app zichzelf binnen 15 minuten.
+> After a reboot Shizuku has to be started again. Once it runs, the app repairs itself within 15 minutes. The app itself does not need to stay open for that.
 
 ---
 
-## Bouwen
+## Build
 
-Deze repo bouwt via GitHub Actions; je hebt lokaal niets nodig.
+This repo builds through GitHub Actions, so you need nothing locally.
 
-**Lokaal bouwen:**
+**Local build:**
 
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
 ./gradlew assembleDebug
 ```
 
-De APK staat in `app/build/outputs/apk/debug/`.
+The APK lands in `app/build/outputs/apk/debug/`.
 
-**CI:** elke push naar `main` bouwt een debug-APK als artifact. Een tag `v*` hangt de APK aan een GitHub Release.
+**CI:** every push to `main` builds a debug APK as an artifact. A `v*` tag attaches the APK to a GitHub Release.
 
 ---
 
-## Techniek
+## Technical notes
 
 - Kotlin, Jetpack Compose (Material 3)
-- minSdk 31, target/compileSdk 36
-- Shizuku API 13.x voor shell-toegang
-- WorkManager voor herstel taken
-- DataStore voor instellingen
-- Geen `QUERY_ALL_PACKAGES`: pakketzichtbaarheid via een scoped `<queries>`-entry op de FCM-receiver
+- minSdk 31, target and compileSdk 36
+- Shizuku API 13.x for shell access
+- WorkManager for the periodic recovery and the screenshot mover
+- DataStore for settings
+- No `QUERY_ALL_PACKAGES`: package visibility comes from a scoped `<queries>` entry on the FCM receiver
 
 ---
 
 ## Credits
 
-- [dingwen07/hyperos-fcm-fix](https://github.com/dingwen07/hyperos-fcm-fix) — de FCM-mechanismen (MILLET-lijst, Greezer, AppOps-codes) zijn daar publiek gedocumenteerd
-- [parallelcc/MiCTS](https://github.com/parallelcc/MiCTS) — Circle to Search trigger (wordt niet meegebundeld)
+- [dingwen07/hyperos-fcm-fix](https://github.com/dingwen07/hyperos-fcm-fix) for the documented FCM mechanisms (MILLET list, Greezer, AppOps codes)
+- [parallelcc/MiCTS](https://github.com/parallelcc/MiCTS) for the Circle to Search trigger, which is not bundled
 
-## Licentie
+## License
 
-GPL-3.0. Zie [LICENSE](LICENSE).
+GPL-3.0. See [LICENSE](LICENSE).

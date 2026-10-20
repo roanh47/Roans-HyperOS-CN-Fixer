@@ -20,6 +20,12 @@ class SafStore(private val context: Context) {
     val skipPending: Flow<Boolean> = context.cnDataStore.data.map { it[SKIP_PENDING] ?: true }
     val assistantOverride: Flow<Boolean> = context.cnDataStore.data.map { it[ASSIST_OVERRIDE] ?: false }
 
+    /** Background screenshot moving, every 15 minutes while configured. */
+    val moverAuto: Flow<Boolean> = context.cnDataStore.data.map { it[MOVER_AUTO] ?: false }
+
+    /** First-run setup guide, so Settings can replay it for debugging. */
+    val setupDone: Flow<Boolean> = context.cnDataStore.data.map { it[SETUP_DONE] ?: false }
+
     suspend fun setSource(uri: Uri) {
         persist(uri)
         context.cnDataStore.edit { it[SRC] = uri.toString() }
@@ -42,6 +48,14 @@ class SafStore(private val context: Context) {
         context.cnDataStore.edit { it[ASSIST_OVERRIDE] = enabled }
     }
 
+    suspend fun setMoverAuto(enabled: Boolean) {
+        context.cnDataStore.edit { it[MOVER_AUTO] = enabled }
+    }
+
+    suspend fun setSetupDone(done: Boolean) {
+        context.cnDataStore.edit { it[SETUP_DONE] = done }
+    }
+
     /** Keeps the SAF grant alive across reboots. */
     private fun persist(uri: Uri) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -54,5 +68,7 @@ class SafStore(private val context: Context) {
         val MOVE_SOURCE = booleanPreferencesKey("move_source")
         val SKIP_PENDING = booleanPreferencesKey("skip_pending")
         val ASSIST_OVERRIDE = booleanPreferencesKey("assistant_override")
+        val MOVER_AUTO = booleanPreferencesKey("mover_auto")
+        val SETUP_DONE = booleanPreferencesKey("setup_done")
     }
 }

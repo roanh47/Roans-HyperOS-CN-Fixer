@@ -15,6 +15,9 @@
         <intent>
             <action android:name="com.google.android.c2dm.intent.RECEIVE" />
         </intent>
+        <!-- Package visibility for the Shizuku app itself (Android 11+).
+             Without this the app cannot tell whether Shizuku is installed. -->
+        <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
     <application

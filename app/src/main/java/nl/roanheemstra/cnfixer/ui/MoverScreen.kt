@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.mover.ScreenshotMover
+import nl.roanheemstra.cnfixer.worker.Scheduler
 
 @Composable
 fun MoverScreen() {
@@ -45,6 +46,7 @@ fun MoverScreen() {
     val destination by store.destination.collectAsState(initial = null)
     val moveSource by store.moveSource.collectAsState(initial = true)
     val skipPending by store.skipPending.collectAsState(initial = true)
+    val moverAuto by store.moverAuto.collectAsState(initial = false)
 
     var log by remember { mutableStateOf("") }
 
@@ -63,11 +65,9 @@ fun MoverScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Screenshots", style = MaterialTheme.typography.headlineMedium)
-
-        SectionCard("Mappen") {
+        SectionCard("Folders") {
             Text(
-                text = source ?: "geen bronmap gekozen",
+                text = source ?: "no source folder selected",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -75,12 +75,12 @@ fun MoverScreen() {
             OutlinedButton(
                 onClick = { pickSource.launch(null) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Bron kiezen (DCIM/Screenshots)") }
+            ) { Text("Pick source (DCIM/Screenshots)") }
 
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = destination ?: "geen doelmap gekozen",
+                text = destination ?: "no destination folder selected",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -88,15 +88,51 @@ fun MoverScreen() {
             OutlinedButton(
                 onClick = { pickDestination.launch(null) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Doel kiezen (Pictures/Screenshots)") }
+            ) { Text("Pick destination (Pictures/Screenshots)") }
         }
 
-        SectionCard("Opties") {
+        SectionCard("Background moving") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Bron verwijderen", style = MaterialTheme.typography.bodyLarge)
+                    Text("Move every 15 minutes", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Verplaatsen in plaats van kopiëren",
+                        "Runs through WorkManager, also when the app is closed",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = moverAuto,
+                    enabled = source != null && destination != null,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            store.setMoverAuto(enabled)
+                            Scheduler.refreshMover(context, enabled)
+                            log = if (enabled) {
+                                "Background moving is on."
+                            } else {
+                                "Background moving is off."
+                            }
+                        }
+                    },
+                )
+            }
+            if (source == null || destination == null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Pick both folders first.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
+        SectionCard("Options") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Delete from source", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Move instead of copy",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -109,9 +145,9 @@ fun MoverScreen() {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Tijdelijke bestanden overslaan", style = MaterialTheme.typography.bodyLarge)
+                    Text("Skip temporary files", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Slaat .pending over die de camera-app aanmaakt",
+                        "Skips the .pending files the camera app creates",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -139,24 +175,24 @@ fun MoverScreen() {
                         )
                     }
                     log = buildString {
-                        append("Verplaatst: ${outcome.moved}\n")
-                        append("Mislukt: ${outcome.failed}\n")
+                        append("Moved: ${outcome.moved}\n")
+                        append("Failed: ${outcome.failed}\n")
                         outcome.errors.forEach { append("- $it\n") }
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Nu uitvoeren")
+            Text("Run now")
         }
 
         LogBox(log)
 
-        SectionCard("Waarom niet via All Files Access") {
+        SectionCard("Why not All Files Access") {
             Text(
-                "Deze app gebruikt de Storage Access Framework met een persistente grant op " +
-                    "precies twee mappen. FolderSync vraagt MANAGE_EXTERNAL_STORAGE en loopt " +
-                    "daardoor juist tegen de scoped-storage-restricties aan.",
+                "This app uses the Storage Access Framework with a persistent grant on exactly " +
+                    "two folders. FolderSync asks for MANAGE_EXTERNAL_STORAGE and runs into the " +
+                    "scoped storage restrictions instead.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

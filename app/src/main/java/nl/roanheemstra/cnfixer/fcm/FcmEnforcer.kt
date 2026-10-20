@@ -19,14 +19,14 @@ object FcmEnforcer {
      */
     fun ensureGmsInMilletList(): Step {
         val current = ShellRunner.exec("settings", "get", "system", MilletList.KEY)
-        if (!current.ok) return Step("GMS-lijst lezen", current)
+        if (!current.ok) return Step("Read GMS list", current)
 
         val existing = MilletList.parse(current.out)
         if (MilletList.GMS in existing) {
-            return Step("GMS staat al in de lijst", ShellResult(true, "geen wijziging nodig", "", 0))
+            return Step("GMS already in the list", ShellResult(true, "no change needed", "", 0))
         }
         val serialized = MilletList.serialize(existing + MilletList.GMS)
-        return Step("GMS in de lijst zetten", ShellRunner.exec("settings", "put", "system", MilletList.KEY, serialized))
+        return Step("Write GMS into the list", ShellRunner.exec("settings", "put", "system", MilletList.KEY, serialized))
     }
 
     /**
@@ -38,9 +38,9 @@ object FcmEnforcer {
         val steps = mutableListOf<Step>()
         steps += ensureGmsInMilletList()
         FcmCommands.greezerRestore().forEachIndexed { index, command ->
-            steps += Step("Greezer-limiter herstellen (${index + 1})", ShellRunner.exec(command))
+            steps += Step("Restore Greezer limiter (${index + 1})", ShellRunner.exec(command))
         }
-        steps += Step("AppOps wegschrijven", ShellRunner.exec(FcmCommands.writeAppOps()))
+        steps += Step("Write AppOps settings", ShellRunner.exec(FcmCommands.writeAppOps()))
         return Report(steps)
     }
 
@@ -53,10 +53,10 @@ object FcmEnforcer {
                 steps += Step("Autostart ${policy.packageName}", ShellRunner.exec(command))
             }
             FcmCommands.battery(policy.packageName, policy.battery).forEach { command ->
-                steps += Step("Batterij ${policy.packageName}", ShellRunner.exec(command))
+                steps += Step("Battery ${policy.packageName}", ShellRunner.exec(command))
             }
         }
-        steps += Step("AppOps wegschrijven", ShellRunner.exec(FcmCommands.writeAppOps()))
+        steps += Step("Write AppOps settings", ShellRunner.exec(FcmCommands.writeAppOps()))
         return Report(steps)
     }
 }

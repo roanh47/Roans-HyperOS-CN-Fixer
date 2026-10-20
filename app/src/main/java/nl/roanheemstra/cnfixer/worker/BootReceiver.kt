@@ -20,14 +20,18 @@ import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        Scheduler.ensureScheduled(context)
-
-        if (!ShellRunner.hasPermission()) return
-
         val pendingResult = goAsync()
         val appContext = context.applicationContext
+
+        if (!ShellRunner.hasPermission()) {
+            pendingResult.finish()
+            return
+        }
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // Re-queue periodic work with the user's current preferences.
+                Scheduler.syncFromPrefs(appContext)
                 if (SafStore(appContext).assistantOverride.first()) {
                     AssistantOverride.apply()
                 }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import nl.roanheemstra.cnfixer.fcm.FcmApp
 import nl.roanheemstra.cnfixer.fcm.FcmAppScanner
 import nl.roanheemstra.cnfixer.fcm.FcmEnforcer
+import nl.roanheemstra.cnfixer.fcm.FcmVerifier
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
 @Composable
@@ -40,6 +41,7 @@ fun FcmScreen() {
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var apps by remember { mutableStateOf<List<FcmApp>>(emptyList()) }
+    var checks by remember { mutableStateOf<List<FcmVerifier.Check>>(emptyList()) }
 
     LaunchedEffect(Unit) { ShizukuState.refresh() }
 
@@ -50,32 +52,19 @@ fun FcmScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("FCM", style = MaterialTheme.typography.headlineMedium)
-
-        SectionCard("Status") {
-            StatusRow(
-                label = "Shizuku",
-                value = if (ShizukuState.available) "actief" else "niet actief",
-                level = if (ShizukuState.available) StatusLevel.OK else StatusLevel.ERROR,
-            )
-            StatusRow(
-                label = "Rechten",
-                value = if (ShizukuState.granted) "gegeven" else "ontbreken",
-                level = if (ShizukuState.granted) StatusLevel.OK else StatusLevel.WARN,
-            )
-            Spacer(Modifier.height(8.dp))
+        if (!ShizukuState.granted) {
             Text(
-                "Zonder Shizuku kan deze app niets aanpassen. Installeer Shizuku, start hem " +
-                    "via wireless debugging en geef rechten. Na een reboot moet Shizuku opnieuw starten.",
+                "Shizuku access is missing. Everything below stays disabled until you start " +
+                    "Shizuku and grant access in Settings.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.error,
             )
         }
 
-        SectionCard("Herstel") {
+        SectionCard("Repair") {
             Text(
-                "Zet com.google.android.gms terug in de no-restrict lijst en haalt de " +
-                    "Greezer-limiter weg. Dit is wat HyperOS na een reboot of OTA terugdraait.",
+                "Puts com.google.android.gms back on the no-restrict list and removes the " +
+                    "Greezer limiter. This is what HyperOS reverts after a reboot or an OTA.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -101,15 +90,53 @@ fun FcmScreen() {
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Nu toepassen")
+                Text("Run repair")
             }
         }
 
-        SectionCard("Apps met push") {
+        SectionCard("Verify") {
             Text(
-                "Alleen apps die een FCM-receiver hebben. Autostart aan betekent dat HyperOS " +
-                    "het proces mag starten als er een push binnenkomt. Laat de batterij op " +
-                    "Optimized staan tenzij een app echt blijft haperen.",
+                "Reads the values back from the device. A green check means the change is " +
+                    "actually in place, not just that a command exited with zero.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                enabled = !busy && ShizukuState.granted,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        checks = withContext(Dispatchers.IO) { FcmVerifier.run() }
+                        busy = false
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Run checks")
+            }
+            if (checks.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                checks.forEach { check ->
+                    StatusRow(
+                        label = check.label,
+                        value = if (check.ok) "pass" else "fail",
+                        level = if (check.ok) StatusLevel.OK else StatusLevel.ERROR,
+                    )
+                    Text(
+                        check.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        SectionCard("Apps with push") {
+            Text(
+                "Only apps that declare an FCM receiver. Autostart on means HyperOS may start " +
+                    "the process when a push arrives. Leave battery on Optimized unless an app " +
+                    "keeps missing notifications.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -120,23 +147,20 @@ fun FcmScreen() {
                     busy = true
                     scope.launch {
                         apps = withContext(Dispatchers.IO) { FcmAppScanner.scan(context) }
-                        log = "Gevonden: ${apps.size} apps."
+                        log = "Found ${apps.size} apps."
                         busy = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Apps scannen")
+                Text("Scan apps")
             }
             if (apps.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 apps.forEach { app ->
+                    Text(app.label, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = app.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = app.packageName,
+                        app.packageName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

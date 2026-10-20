@@ -29,10 +29,10 @@ object ScreenshotMover {
         val destinationDir = DocumentFile.fromTreeUri(context, destination)
 
         if (sourceDir == null || !sourceDir.isDirectory) {
-            return Outcome(0, 0, listOf("Bronmap is niet leesbaar"))
+            return Outcome(0, 0, listOf("Source folder is not readable"))
         }
         if (destinationDir == null || !destinationDir.isDirectory) {
-            return Outcome(0, 0, listOf("Doelmap is niet leesbaar"))
+            return Outcome(0, 0, listOf("Destination folder is not readable"))
         }
 
         var moved = 0
@@ -51,7 +51,7 @@ object ScreenshotMover {
 
             val target = try {
                 destinationDir.createFile(file.type ?: "application/octet-stream", name)
-                    ?: throw IllegalStateException("doelbestand kon niet worden aangemaakt")
+                    ?: throw IllegalStateException("could not create the destination file")
             } catch (t: Throwable) {
                 failed++
                 errors += "$name: ${t.message ?: t.javaClass.simpleName}"
@@ -60,7 +60,7 @@ object ScreenshotMover {
 
             try {
                 val input = context.contentResolver.openInputStream(file.uri)
-                    ?: throw IllegalStateException("bron kon niet worden gelezen")
+                    ?: throw IllegalStateException("source could not be read")
                 input.use { source ->
                     val output = context.contentResolver.openOutputStream(target.uri)
                         ?: throw IllegalStateException("geen schrijftoegang tot doel")
@@ -68,7 +68,7 @@ object ScreenshotMover {
                 }
 
                 if (moveSource && !file.delete()) {
-                    errors += "$name: gekopieerd, maar de bron kon niet worden verwijderd"
+                    errors += "$name: copied, but the source could not be deleted"
                 }
                 moved++
             } catch (t: Throwable) {

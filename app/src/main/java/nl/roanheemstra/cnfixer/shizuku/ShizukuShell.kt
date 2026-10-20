@@ -57,7 +57,7 @@ object ShizukuShell {
         }
 
         val shell = bound
-            ?: return ShellResult(false, "", "Shizuku-service is nog niet verbonden", -1)
+            ?: return ShellResult(false, "", "Shizuku service is not connected yet", -1)
 
         return try {
             val raw = shell.exec(command)
