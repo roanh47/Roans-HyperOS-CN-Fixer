@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import nl.roanheemstra.cnfixer.BuildConfig
 import nl.roanheemstra.cnfixer.PowerHelper
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
@@ -125,7 +126,7 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
 
         SectionCard("Version") {
             Text(
-                "0.1.0",
+                BuildConfig.VERSION_NAME,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
