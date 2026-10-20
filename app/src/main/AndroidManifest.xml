@@ -55,7 +55,7 @@
         <service
             android:name=".assist.CircleToSearchTileService"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_mono"
+            android:icon="@mipmap/ic_brand_logo_mono"
             android:label="@string/tile_circle_to_search"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
