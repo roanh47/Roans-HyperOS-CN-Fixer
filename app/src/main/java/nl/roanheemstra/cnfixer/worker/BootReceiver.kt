@@ -7,7 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import nl.roanheemstra.cnfixer.mover.MoverService
+import nl.roanheemstra.cnfixer.mover.MoverScheduler
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 
@@ -32,9 +32,10 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 Scheduler.syncFromPrefs(appContext)
-                // Restart the watcher if the user had it on before the reboot.
+                // The content trigger job is persisted, but re-arming it here
+                // costs nothing and covers a job that was cancelled by the system.
                 if (SafStore(appContext).moverAuto.first()) {
-                    MoverService.start(appContext)
+                    MoverScheduler.schedule(appContext)
                 }
             } catch (_: Throwable) {
                 // Best effort: the periodic worker retries.

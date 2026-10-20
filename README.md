@@ -41,7 +41,7 @@ There is nothing to configure: the source is always `DCIM/Screenshots` and the t
 
 The move runs with the Shizuku shell user, which means this fix needs no storage permission at all and no folder picker.
 
-Background moving is a switch with an interval (15, 30, 60 or 120 seconds). It runs as a foreground service that polls the folder through Shizuku, so a screenshot leaves DCIM within seconds instead of waiting for the 15 minute WorkManager floor. The 15 minute worker stays as a safety net. The app does not need to be open for it.
+Background moving is a switch. It uses a JobScheduler content trigger on the media store, so the system wakes the app when the images collection changes instead of the app polling on a timer. No foreground service, no permanent notification. A 15 minute WorkManager pass stays as a safety net. The read media permission is only there to hear about the change; the move itself runs as the shell.
 
 Files with `.pending` in the name are skipped. The camera app writes a temporary file first and renames it afterwards.
 

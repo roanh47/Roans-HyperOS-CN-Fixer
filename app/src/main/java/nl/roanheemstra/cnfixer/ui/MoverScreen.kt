@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import nl.roanheemstra.cnfixer.mover.MoverService
+import nl.roanheemstra.cnfixer.mover.MoverScheduler
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.mover.ScreenshotMover
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
@@ -44,7 +43,6 @@ fun MoverScreen() {
     val moveSource by store.moveSource.collectAsState(initial = true)
     val skipPending by store.skipPending.collectAsState(initial = true)
     val moverAuto by store.moverAuto.collectAsState(initial = false)
-    val interval by store.moverIntervalSeconds.collectAsState(initial = 30)
 
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
@@ -80,11 +78,45 @@ fun MoverScreen() {
         }
 
         SectionCard("Automatic moving") {
+            var hasMediaAccess by remember {
+                mutableStateOf(
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        context,
+                        android.Manifest.permission.READ_MEDIA_IMAGES,
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                )
+            }
+            val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                hasMediaAccess = granted
+                log = if (granted) "Photo access granted." else "Photo access denied."
+            }
+
+            if (!hasMediaAccess) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Photo access", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Only used to hear about new screenshots. The move itself runs " +
+                                "through Shizuku",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Button(onClick = {
+                        permissionLauncher.launch(android.Manifest.permission.READ_MEDIA_IMAGES)
+                    }) { Text("Allow") }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Watch the folder", style = MaterialTheme.typography.bodyLarge)
+                    Text("Move new screenshots", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "A background service checks the folder every ${interval}s",
+                        "Runs when the gallery reports a change, so nothing polls and no " +
+                            "notification stays on screen",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -95,34 +127,15 @@ fun MoverScreen() {
                     onCheckedChange = { enabled ->
                         scope.launch {
                             store.setMoverAuto(enabled)
-                            if (enabled) MoverService.start(context) else MoverService.stop(context)
-                            log = if (enabled) "Watching started." else "Watching stopped."
+                            if (enabled) {
+                                MoverScheduler.schedule(context)
+                            } else {
+                                MoverScheduler.cancel(context)
+                            }
+                            log = if (enabled) "Waiting for the next change." else "Turned off."
                         }
                     },
                 )
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Check every",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15, 30, 60, 120).forEach { seconds ->
-                    if (seconds == interval) {
-                        Button(
-                            onClick = { scope.launch { store.setMoverIntervalSeconds(seconds) } },
-                            modifier = Modifier.weight(1f),
-                        ) { Text("${seconds}s") }
-                    } else {
-                        OutlinedButton(
-                            onClick = { scope.launch { store.setMoverIntervalSeconds(seconds) } },
-                            modifier = Modifier.weight(1f),
-                        ) { Text("${seconds}s") }
-                    }
-                }
             }
 
             if (!ShizukuState.granted) {
@@ -195,5 +208,15 @@ fun MoverScreen() {
         }
 
         LogBox(log)
+
+        SectionCard("If HyperOS holds the job back") {
+            Text(
+                "The change trigger is handled by the system, but HyperOS may delay a job when " +
+                    "the battery saver is on. A 15 minute safety pass runs regardless, and " +
+                    "'Move now' always works.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
