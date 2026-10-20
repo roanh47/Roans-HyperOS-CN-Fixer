@@ -23,7 +23,7 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_brand_logo"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.CnFixer">
@@ -55,7 +55,7 @@
         <service
             android:name=".assist.CircleToSearchTileService"
             android:exported="true"
-            android:icon="@mipmap/ic_brand_logo_mono"
+            android:icon="@mipmap/ic_brand_logo"
             android:label="@string/tile_circle_to_search"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
