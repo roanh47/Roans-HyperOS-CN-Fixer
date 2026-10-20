@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import nl.roanheemstra.cnfixer.R
 import androidx.core.content.ContextCompat
 
 /**
@@ -46,7 +47,7 @@ object NotificationTest {
         manager.createNotificationChannel(channel)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("CN Fixer test")
             .setContentText("If you see this, notifications reach this app.")
             .setAutoCancel(true)
