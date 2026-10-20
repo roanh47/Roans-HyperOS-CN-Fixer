@@ -7,24 +7,28 @@ import nl.roanheemstra.cnfixer.shizuku.ShellRunner
  *
  * The paths are fixed on purpose: Xiaomi always writes to DCIM/Screenshots and
  * Pictures/Screenshots is where Google Photos treats them as a separate device
- * folder. Nothing to pick, so there is nothing to configure wrong.
+ * folder. The UI shows them without the /sdcard prefix, since that is just the
+ * storage root, not part of the folder name.
  */
 object ScreenshotMover {
 
-    const val SOURCE_DIR = "/sdcard/DCIM/Screenshots"
-    const val DEST_DIR = "/sdcard/Pictures/Screenshots"
+    const val DISPLAY_SOURCE = "DCIM/Screenshots"
+    const val DISPLAY_DEST = "Pictures/Screenshots"
+
+    const val SOURCE_DIR = "/sdcard/$DISPLAY_SOURCE"
+    const val DEST_DIR = "/sdcard/$DISPLAY_DEST"
 
     data class Outcome(val moved: Int, val failed: Int, val errors: List<String>)
 
     fun run(moveSource: Boolean, skipPending: Boolean): Outcome {
         val target = ShellRunner.exec("mkdir", "-p", DEST_DIR)
         if (!target.ok) {
-            return Outcome(0, 1, listOf("Cannot create $DEST_DIR: ${target.summary()}"))
+            return Outcome(0, 1, listOf("Cannot create $DISPLAY_DEST: ${target.summary()}"))
         }
 
         val listing = ShellRunner.exec("sh", "-c", "ls -1 '$SOURCE_DIR' 2>/dev/null || true")
         if (!listing.ok) {
-            return Outcome(0, 1, listOf("Cannot read $SOURCE_DIR: ${listing.summary()}"))
+            return Outcome(0, 1, listOf("Cannot read $DISPLAY_SOURCE: ${listing.summary()}"))
         }
 
         val names = listing.out.lineSequence()

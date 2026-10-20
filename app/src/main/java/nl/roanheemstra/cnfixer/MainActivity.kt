@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import nl.roanheemstra.cnfixer.mover.MoverService
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
@@ -71,6 +72,9 @@ class MainActivity : ComponentActivity() {
             // First launch: walk through the setup. Afterwards only on request.
             showSetup = !store.setupDone.first()
             runCatching { Scheduler.syncFromPrefs(this@MainActivity) }
+            if (store.moverAuto.first()) {
+                runCatching { MoverService.start(this@MainActivity) }
+            }
         }
 
         setContent {

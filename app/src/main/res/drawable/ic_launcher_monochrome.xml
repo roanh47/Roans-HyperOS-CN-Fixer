@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome layer for themed icons (Android 13+); HyperOS tints it itself. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M38,34 H70 A6.7,6.7 0 0 1 76.7,40.7 V67.3 A6.7,6.7 0 0 1 70,74 H38 A6.7,6.7 0 0 1 31.3,67.3 V40.7 A6.7,6.7 0 0 1 38,34 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6.7"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <path
+        android:pathData="M50.65,29.85 a3.35,3.35 0 0 1 6.7,0 v48.3 a3.35,3.35 0 0 1 -6.7,0 z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

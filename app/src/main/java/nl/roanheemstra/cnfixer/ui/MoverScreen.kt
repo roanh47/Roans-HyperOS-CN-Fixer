@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,10 +30,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import nl.roanheemstra.cnfixer.mover.MoverService
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.mover.ScreenshotMover
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
-import nl.roanheemstra.cnfixer.worker.Scheduler
 
 @Composable
 fun MoverScreen() {
@@ -43,8 +44,9 @@ fun MoverScreen() {
     val moveSource by store.moveSource.collectAsState(initial = true)
     val skipPending by store.skipPending.collectAsState(initial = true)
     val moverAuto by store.moverAuto.collectAsState(initial = false)
+    val interval by store.moverIntervalSeconds.collectAsState(initial = 30)
 
-    var hard by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { ShizukuState.refresh() }
@@ -59,19 +61,19 @@ fun MoverScreen() {
         SectionCard("Folders") {
             StatusRow(
                 label = "From",
-                value = ScreenshotMover.SOURCE_DIR,
+                value = ScreenshotMover.DISPLAY_SOURCE,
                 level = StatusLevel.OK,
             )
             StatusRow(
                 label = "To",
-                value = ScreenshotMover.DEST_DIR,
+                value = ScreenshotMover.DISPLAY_DEST,
                 level = StatusLevel.OK,
             )
             Text(
-                "Fixed paths. Xiaomi always writes screenshots to DCIM/Screenshots and " +
-                    "Google Photos treats Pictures/Screenshots as a separate device folder, so " +
-                    "there is nothing to pick. The move runs with Shizuku, which is why this fix " +
-                    "needs no storage permission at all.",
+                "Fixed folders in the storage root. Xiaomi always writes screenshots to " +
+                    "DCIM/Screenshots and Google Photos treats Pictures/Screenshots as a separate " +
+                    "device folder, so there is nothing to pick. The move runs with Shizuku, which " +
+                    "is why this fix needs no storage permission at all.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -80,9 +82,9 @@ fun MoverScreen() {
         SectionCard("Automatic moving") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Every 15 minutes", style = MaterialTheme.typography.bodyLarge)
+                    Text("Watch the folder", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Runs through WorkManager, also when the app is closed",
+                        "A background service checks the folder every ${interval}s",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -93,12 +95,36 @@ fun MoverScreen() {
                     onCheckedChange = { enabled ->
                         scope.launch {
                             store.setMoverAuto(enabled)
-                            Scheduler.refreshMover(context, enabled)
-                            log = if (enabled) "Automatic moving is on." else "Automatic moving is off."
+                            if (enabled) MoverService.start(context) else MoverService.stop(context)
+                            log = if (enabled) "Watching started." else "Watching stopped."
                         }
                     },
                 )
             }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Check every",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(15, 30, 60, 120).forEach { seconds ->
+                    if (seconds == interval) {
+                        Button(
+                            onClick = { scope.launch { store.setMoverIntervalSeconds(seconds) } },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("${seconds}s") }
+                    } else {
+                        OutlinedButton(
+                            onClick = { scope.launch { store.setMoverIntervalSeconds(seconds) } },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("${seconds}s") }
+                    }
+                }
+            }
+
             if (!ShizukuState.granted) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -142,9 +168,9 @@ fun MoverScreen() {
         }
 
         Button(
-            enabled = !hard && ShizukuState.granted,
+            enabled = !busy && ShizukuState.granted,
             onClick = {
-                hard = true
+                busy = true
                 scope.launch {
                     val outcome = withContext(Dispatchers.IO) {
                         ScreenshotMover.run(
@@ -157,10 +183,10 @@ fun MoverScreen() {
                         append("Failed: ${outcome.failed}\n")
                         outcome.errors.forEach { append("- $it\n") }
                         if (outcome.moved == 0 && outcome.failed == 0) {
-                            append("Nothing new in ${ScreenshotMover.SOURCE_DIR}.")
+                            append("Nothing new in ${ScreenshotMover.DISPLAY_SOURCE}.")
                         }
                     }
-                    hard = false
+                    busy = false
                 }
             },
             modifier = Modifier.fillMaxWidth(),

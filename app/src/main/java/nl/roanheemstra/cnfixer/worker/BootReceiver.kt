@@ -5,7 +5,10 @@ import android.content.Context
 import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import nl.roanheemstra.cnfixer.mover.MoverService
+import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 
 /**
@@ -29,6 +32,10 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 Scheduler.syncFromPrefs(appContext)
+                // Restart the watcher if the user had it on before the reboot.
+                if (SafStore(appContext).moverAuto.first()) {
+                    MoverService.start(appContext)
+                }
             } catch (_: Throwable) {
                 // Best effort: the periodic worker retries.
             } finally {

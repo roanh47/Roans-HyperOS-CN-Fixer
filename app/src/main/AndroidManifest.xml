@@ -39,6 +39,11 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".mover.MoverService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Circle to Search: invisible trigger activity plus the Quick Settings tile -->
         <activity
             android:name=".assist.TriggerActivity"
