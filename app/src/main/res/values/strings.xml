@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">CN Fixer</string>
+
+    <string name="tab_fcm">FCM</string>
+    <string name="tab_mover">Screenshots</string>
+    <string name="tab_search">Zoeken</string>
+    <string name="tab_info">Info</string>
+</resources>
