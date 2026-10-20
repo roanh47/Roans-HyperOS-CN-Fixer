@@ -14,7 +14,6 @@ class SafStore(private val context: Context) {
 
     val moveSource: Flow<Boolean> = context.cnDataStore.data.map { it[MOVE_SOURCE] ?: true }
     val skipPending: Flow<Boolean> = context.cnDataStore.data.map { it[SKIP_PENDING] ?: true }
-    val assistantOverride: Flow<Boolean> = context.cnDataStore.data.map { it[ASSIST_OVERRIDE] ?: false }
 
     /** Background screenshot moving, every 15 minutes. */
     val moverAuto: Flow<Boolean> = context.cnDataStore.data.map { it[MOVER_AUTO] ?: false }
@@ -32,10 +31,6 @@ class SafStore(private val context: Context) {
 
     suspend fun setSkipPending(enabled: Boolean) {
         context.cnDataStore.edit { it[SKIP_PENDING] = enabled }
-    }
-
-    suspend fun setAssistantOverride(enabled: Boolean) {
-        context.cnDataStore.edit { it[ASSIST_OVERRIDE] = enabled }
     }
 
     suspend fun setMoverAuto(enabled: Boolean) {

@@ -139,8 +139,8 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
         SectionCard("What this app does") {
             Text(
                 "Fixes two import problems on a Xiaomi China ROM: dropped FCM notifications " +
-                    "and screenshots that stay in DCIM. It can also enable Circle to Search " +
-                    "through MiCTS.",
+                    "and screenshots that stay in DCIM. It also triggers Circle to Search itself, " +
+                    "so there is no second app to install.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -165,8 +165,9 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
         SectionCard("Credits and license") {
             Text(
                 "GPL-3.0. The FCM mechanisms are publicly documented by dingwen07/hyperos-fcm-fix.\n\n" +
-                    "Circle to Search via parallelcc/MiCTS (GPL-3.0), not bundled, only called as " +
-                    "a separate app.",
+                    "The Circle to Search trigger follows the approach of parallelcc/MiCTS " +
+                    "(GPL-3.0). No code from it is bundled: this app calls the same hidden voice " +
+                    "interaction API on its own.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

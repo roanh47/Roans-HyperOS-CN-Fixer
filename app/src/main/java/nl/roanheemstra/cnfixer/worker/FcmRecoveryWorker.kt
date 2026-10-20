@@ -7,8 +7,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.first
-import nl.roanheemstra.cnfixer.assist.AssistantOverride
 import nl.roanheemstra.cnfixer.fcm.FcmEnforcer
+import nl.roanheemstra.cnfixer.fcm.FcmVerifier
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 import java.util.concurrent.TimeUnit
@@ -24,14 +24,13 @@ class FcmRecoveryWorker(
 
         val report = FcmEnforcer.runCorePass()
 
-        // HyperOS resets the assistant component on reboot. Re-apply it
-        // as soon as Shizuku is reachable again.
-        val assistantEnabled = SafStore(applicationContext).assistantOverride.first()
-        if (assistantEnabled) {
-            AssistantOverride.apply()
-        }
+        // Record what the device actually says, not just that commands ran.
+        val store = SafStore(applicationContext)
+        val checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
+        val verified = checks.isNotEmpty() && checks.all { it.ok }
+        store.recordFcmRun(verified)
 
-        return if (report.failures().isEmpty()) Result.success() else Result.retry()
+        return if (report.failures().isEmpty() || verified) Result.success() else Result.retry()
     }
 }
 

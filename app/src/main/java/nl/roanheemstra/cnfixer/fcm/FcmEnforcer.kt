@@ -5,11 +5,19 @@ import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 
 object FcmEnforcer {
 
-    data class Step(val label: String, val result: ShellResult)
+    data class Step(
+        val label: String,
+        val result: ShellResult,
+        /** Optional steps are reported but do not decide whether the pass worked. */
+        val required: Boolean = true,
+    )
 
     data class Report(val steps: List<Step>) {
-        val ok: Boolean get() = steps.isNotEmpty() && steps.all { it.result.ok }
-        fun failures(): List<Step> = steps.filter { !it.result.ok }
+        val ok: Boolean
+            get() = steps.any { it.required } &&
+                steps.filter { it.required }.all { it.result.ok }
+
+        fun failures(): List<Step> = steps.filter { it.required && !it.result.ok }
     }
 
     /**
@@ -38,7 +46,13 @@ object FcmEnforcer {
         val steps = mutableListOf<Step>()
         steps += ensureGmsInMilletList()
         FcmCommands.greezerRestore().forEachIndexed { index, command ->
-            steps += Step("Restore Greezer limiter (${index + 1})", ShellRunner.exec(command))
+            // HyperOS 4 dropped parts of the greezer service, so a failure here
+            // says nothing about FCM itself. Reported, not fatal.
+            steps += Step(
+                label = "Restore Greezer limiter (${index + 1})",
+                result = ShellRunner.exec(command),
+                required = false,
+            )
         }
         steps += Step("Write AppOps settings", ShellRunner.exec(FcmCommands.writeAppOps()))
         return Report(steps)

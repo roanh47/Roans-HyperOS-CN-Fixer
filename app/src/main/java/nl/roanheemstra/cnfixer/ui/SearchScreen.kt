@@ -1,8 +1,9 @@
 package nl.roanheemstra.cnfixer.ui
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,42 +13,50 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import nl.roanheemstra.cnfixer.assist.AssistantOverride
-import nl.roanheemstra.cnfixer.mover.SafStore
+import nl.roanheemstra.cnfixer.assist.CircleToSearch
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
+/**
+ * Circle to Search is built into this app now. There is no MiCTS to install:
+ * the trigger calls the same hidden voice interaction API MiCTS used.
+ */
 @Composable
 fun SearchScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val store = remember { SafStore(context) }
 
-    val overrideEnabled by store.assistantOverride.collectAsState(initial = false)
-    var micTsInstalled by remember { mutableStateOf(false) }
-    var currentAssistant by remember { mutableStateOf("") }
+    var assistant by remember { mutableStateOf("") }
     var log by remember { mutableStateOf("") }
+    var googleInstalled by remember { mutableStateOf(false) }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         ShizukuState.refresh()
-        micTsInstalled = AssistantOverride.isMiCtsInstalled(context.packageManager)
-        if (ShizukuState.granted) {
-            currentAssistant = withContext(Dispatchers.IO) { AssistantOverride.current().out }
+        googleInstalled = runCatching {
+            context.packageManager.getApplicationInfo(
+                "com.google.android.googlequicksearchbox",
+                0,
+            )
+            true
+        }.getOrDefault(false)
+        assistant = withContext(Dispatchers.IO) {
+            nl.roanheemstra.cnfixer.shizuku.ShellRunner
+                .exec("settings", "get", "secure", "assistant")
+                .out
         }
     }
 
@@ -58,97 +67,84 @@ fun SearchScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (!ShizukuState.granted) {
-            Text(
-                "Shizuku access is missing. Grant it in Settings first.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-
         SectionCard("Status") {
             StatusRow(
-                label = "MiCTS installed",
-                value = if (micTsInstalled) "yes" else "no",
-                level = if (micTsInstalled) StatusLevel.OK else StatusLevel.WARN,
+                label = "Google app",
+                value = if (googleInstalled) "installed" else "missing",
+                level = if (googleInstalled) StatusLevel.OK else StatusLevel.ERROR,
             )
             StatusRow(
-                label = "Current assistant",
-                value = currentAssistant.ifBlank { "unknown" },
-                level = StatusLevel.OK,
+                label = "Default assistant",
+                value = assistant.ifBlank { "unknown" },
+                level = if (assistant.contains("googlequicksearchbox")) {
+                    StatusLevel.OK
+                } else {
+                    StatusLevel.WARN
+                },
             )
-        }
-
-        SectionCard("Why it works this way") {
-            Text(
-                "Opening MiCTS alone is not enough: HyperOS then gives the app no assist context " +
-                    "and the Omni call fails. That is why this app registers MiCTS as the default " +
-                    "assistant, so the assist gesture runs through MiCTS.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "HyperOS resets this value on every reboot. The background work sets it again as " +
-                    "soon as Shizuku is running.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        SectionCard("Setting") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("MiCTS as assistant", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Re-apply after every reboot",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = overrideEnabled,
-                    onCheckedChange = { enabled ->
-                        scope.launch {
-                            store.setAssistantOverride(enabled)
-                            if (enabled) {
-                                val result = withContext(Dispatchers.IO) { AssistantOverride.apply() }
-                                log = if (result.ok) "Applied." else "Failed: ${result.summary()}"
-                                currentAssistant = withContext(Dispatchers.IO) {
-                                    AssistantOverride.current().out
-                                }
+            if (!assistant.contains("googlequicksearchbox")) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Circle to Search starts the session of the current assistant, so the Google " +
+                        "app has to be the default assistant. Set it in the screen behind the " +
+                        "button below.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+                        }.onFailure {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_SETTINGS)
+                                )
                             }
                         }
                     },
-                )
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Open assistant settings") }
             }
         }
 
-        Button(
-            enabled = ShizukuState.granted && micTsInstalled,
-            onClick = {
-                scope.launch {
-                    val result = withContext(Dispatchers.IO) { AssistantOverride.apply() }
-                    log = if (result.ok) {
-                        "Applied. Now long press your gesture bar or home button."
+        SectionCard("Trigger") {
+            Text(
+                "This calls the hidden voice interaction API directly, which is exactly what " +
+                    "MiCTS did. No extra app needed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    log = if (CircleToSearch.trigger(context)) {
+                        "Triggered."
                     } else {
-                        "Failed: ${result.summary()}"
+                        "Failed. Check that Google is the default assistant."
                     }
-                    currentAssistant = withContext(Dispatchers.IO) { AssistantOverride.current().out }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Apply now")
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Trigger now") }
+        }
+
+        SectionCard("Quick Settings tile") {
+            Text(
+                "Add the Circle to Search tile to your Quick Settings panel. That is the no-root " +
+                    "replacement for the long press gesture, which only an Xposed module can hook.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         LogBox(log)
 
         SectionCard("When it does not work") {
             Text(
-                "If Google reports 'Omni invocation failed: not enabled', Google has disabled " +
-                    "Circle to Search for this model. That is only bypassable with root " +
-                    "(LSPosed and device spoofing). Without root it stops here.",
+                "If the session does not appear, Google has disabled Circle to Search for this " +
+                    "model ('Omni invocation failed: not enabled' in logcat). That is only " +
+                    "bypassable with root, LSPosed and a device spoof. Without root it stops here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

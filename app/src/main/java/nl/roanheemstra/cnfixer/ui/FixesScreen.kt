@@ -33,7 +33,7 @@ enum class FixId(val title: String, val summary: String) {
     ),
     CIRCLE_TO_SEARCH(
         title = "Circle to Search",
-        summary = "Route the assistant gesture to MiCTS so Circle to Search works",
+        summary = "Built in, trigger it from the app or from a Quick Settings tile",
     ),
 }
 

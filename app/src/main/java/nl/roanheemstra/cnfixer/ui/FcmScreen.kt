@@ -134,7 +134,12 @@ fun FcmScreen() {
                     busy = true
                     scope.launch {
                         val report = withContext(Dispatchers.IO) { FcmEnforcer.runCorePass() }
-                        withContext(Dispatchers.IO) { store.recordFcmRun(report.ok) }
+                        // The status badge follows the device state, not the exit codes.
+                        val verified = withContext(Dispatchers.IO) {
+                            val results = FcmVerifier.run()
+                            results.isNotEmpty() && results.all { it.ok }
+                        }
+                        withContext(Dispatchers.IO) { store.recordFcmRun(verified) }
                         log = buildString {
                             report.steps.forEach { step ->
                                 append(if (step.result.ok) "OK   " else "FAIL ")

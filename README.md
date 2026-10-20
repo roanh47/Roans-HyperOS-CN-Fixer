@@ -46,9 +46,11 @@ Background moving is a switch. When it is on, the move runs every 15 minutes thr
 Files with `.pending` in the name are skipped. The camera app writes a temporary file first and renames it afterwards.
 
 ### Circle to Search
-Works with [MiCTS](https://github.com/parallelcc/MiCTS). Opening MiCTS alone is not enough on a China ROM: the assist context is missing and the Omni call fails. This app registers MiCTS as the **default assistant**, so the assist gesture runs through MiCTS.
+Built in. There is no MiCTS to install and nothing to register: the app calls the hidden voice interaction API itself, the same call MiCTS used, with the Circle to Search entry point.
 
-HyperOS resets that value on every reboot. The recovery task sets it again as soon as Shizuku is running.
+The Google app has to be the default assistant, because the call starts the session of the current assistant. The screen shows which assistant is set and links straight to that setting.
+
+Two ways to trigger it: the **Trigger now** button, or the **Circle to Search tile** in the Quick Settings panel. The tile is the no-root replacement for the long press gesture, since only an Xposed module can hook that gesture.
 
 ---
 
@@ -74,7 +76,7 @@ These are listed inside the app on purpose, so nobody promises what cannot work:
 3. Open the app and follow the setup guide: it walks through Shizuku, access, battery and autostart
 4. Allow unrestricted battery in Settings, and set Autostart on in the Xiaomi security app
 
-For Circle to Search you also need the [Google app](https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox) and [MiCTS](https://github.com/parallelcc/MiCTS/releases).
+For Circle to Search you also need the [Google app](https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox), set as the default assistant. Nothing else.
 
 > After a reboot Shizuku has to be started again. Once it runs, the app repairs itself within 15 minutes. The app itself does not need to stay open for that.
 

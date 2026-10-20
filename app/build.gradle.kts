@@ -12,8 +12,8 @@ android {
         applicationId = "nl.roanheemstra.cnfixer"
         minSdk = 31
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     /**
@@ -94,6 +94,10 @@ dependencies {
 
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+
+    // Reaches the hidden voice interaction API that starts Circle to Search,
+    // the same way MiCTS does it. No root needed for the call itself.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
