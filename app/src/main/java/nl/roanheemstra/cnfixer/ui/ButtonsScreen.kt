@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import nl.roanheemstra.cnfixer.buttons.AiButton
 import nl.roanheemstra.cnfixer.buttons.ButtonProbe
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
@@ -38,10 +41,30 @@ fun ButtonsScreen() {
     val scope = rememberCoroutineScope()
 
     var report by remember { mutableStateOf<ButtonProbe.Report?>(null) }
+    var aiState by remember { mutableStateOf<AiButton.State?>(null) }
+    var aiLog by remember { mutableStateOf("") }
+    var aiBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) { ShizukuState.refresh() }
+    LaunchedEffect(Unit) {
+        ShizukuState.refresh()
+        if (ShizukuState.granted) {
+            aiState = withContext(Dispatchers.IO) { runCatching { AiButton.state() }.getOrNull() }
+        }
+    }
+
+    fun applyAi(mode: AiButton.Mode) {
+        aiBusy = true
+        scope.launch {
+            val results = withContext(Dispatchers.IO) {
+                runCatching { AiButton.setMode(mode) }.getOrDefault(emptyList())
+            }
+            aiState = withContext(Dispatchers.IO) { runCatching { AiButton.state() }.getOrNull() }
+            aiLog = results.joinToString("\n") { it.first }
+            aiBusy = false
+        }
+    }
 
     val current = report
 
@@ -57,6 +80,85 @@ fun ButtonsScreen() {
                 "The power button and the AI button are hardware keys. This screen asks the " +
                     "input layer what they actually send, so a remap can target the right key " +
                     "instead of guessing.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        val currentAi = aiState
+        SectionCard("AI button") {
+            if (currentAi == null) {
+                Text(
+                    "Grant Shizuku access to read the AI packages.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                StatusRow(
+                    label = "Packages",
+                    value = currentAi.installedLabel,
+                    level = if (currentAi.installed.isEmpty()) StatusLevel.WARN else StatusLevel.OK,
+                )
+                StatusRow(
+                    label = "Current action",
+                    value = when (currentAi.mode) {
+                        AiButton.Mode.XIAOMI_AI -> "Xiaomi AI"
+                        AiButton.Mode.OFF -> "off"
+                    },
+                    level = StatusLevel.OK,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (currentAi.mode == AiButton.Mode.XIAOMI_AI) {
+                        Button(
+                            enabled = !aiBusy,
+                            onClick = { applyAi(AiButton.Mode.XIAOMI_AI) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Xiaomi AI") }
+                    } else {
+                        OutlinedButton(
+                            enabled = !aiBusy,
+                            onClick = { applyAi(AiButton.Mode.XIAOMI_AI) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Xiaomi AI") }
+                    }
+                    if (currentAi.mode == AiButton.Mode.OFF) {
+                        Button(
+                            enabled = !aiBusy,
+                            onClick = { applyAi(AiButton.Mode.OFF) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Off") }
+                    } else {
+                        OutlinedButton(
+                            enabled = !aiBusy,
+                            onClick = { applyAi(AiButton.Mode.OFF) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Off") }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Off disables the Xiaomi AI packages, so the key does nothing. That is " +
+                        "reversible: pick Xiaomi AI and they are enabled again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LogBox(aiLog)
+            }
+        }
+
+        SectionCard("Power button") {
+            StatusRow(
+                label = "Short press",
+                value = "screen off",
+                level = StatusLevel.OK,
+            )
+            Text(
+                "A short press is handled inside system_server before any app sees the key, so " +
+                    "changing it needs the input device to be taken over: root, or a native " +
+                    "helper that grabs it through the shell. Taking it over also stops the screen " +
+                    "from turning off by itself, which has to be rebuilt by hand. No shortcut for " +
+                    "that exists at app level.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
