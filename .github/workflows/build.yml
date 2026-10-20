@@ -20,20 +20,35 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned instead of ubuntu-latest: that label is migrating to Ubuntu 26,
+    # which would move the preinstalled SDK path underneath us.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      # The runner image already ships the Android SDK. The setup-android
+      # The runner image already ships an Android SDK. The setup-android
       # action is deliberately not used: it tries to install the "tools"
       # package, which Google removed from the repository, and fails.
+      - name: Locate Android SDK
+        run: |
+          if [ ! -d "$ANDROID_HOME" ]; then
+            CANDIDATE=$(ls -d /usr/local/lib/android/sdk /opt/android-sdk /usr/lib/android-sdk 2>/dev/null | head -1)
+            if [ -z "$CANDIDATE" ]; then
+              echo "Geen Android SDK gevonden op deze runner"; exit 1
+            fi
+            echo "ANDROID_HOME fallback: $CANDIDATE"
+            echo "ANDROID_HOME=$CANDIDATE" >> "$GITHUB_ENV"
+            echo "ANDROID_SDK_ROOT=$CANDIDATE" >> "$GITHUB_ENV"
+          fi
+          ls "$ANDROID_HOME"
+
       - name: Install required SDK packages
         run: |
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)
@@ -42,7 +57,7 @@ jobs:
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
@@ -51,7 +66,7 @@ jobs:
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cnfixer-debug-apk
           path: app/build/outputs/apk/debug/*.apk
@@ -59,7 +74,7 @@ jobs:
 
       - name: Attach APK to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true
