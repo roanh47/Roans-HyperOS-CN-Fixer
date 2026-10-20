@@ -82,6 +82,10 @@ For Circle to Search you also need the [Google app](https://play.google.com/stor
 
 ---
 
+## Updates
+
+Settings has a check that reads the latest release from the GitHub API and compares it with the installed version. It offers the APK as a direct download and hands it to the system installer, so no browser trip. Two notification categories, screenshots and Google Play services, each have their own switch, plus a link to the device notification page for this app.
+
 ## Build
 
 This repo builds through GitHub Actions, so you need nothing locally.

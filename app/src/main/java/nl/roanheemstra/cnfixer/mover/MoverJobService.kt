@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import nl.roanheemstra.cnfixer.notifications.Notify
 
 /**
  * Runs the move when the media store reports new content, so there is no timer
@@ -25,10 +26,23 @@ class MoverJobService : JobService() {
                     MoverScheduler.cancel(applicationContext)
                     return@launch
                 }
-                ScreenshotMover.run(
+                val outcome = ScreenshotMover.run(
                     moveSource = store.moveSource.first(),
                     skipPending = store.skipPending.first(),
                 )
+                if (outcome.moved > 0) {
+                    Notify.screenshots(
+                        applicationContext,
+                        "Screenshots moved",
+                        "${outcome.moved} file(s) went to ${ScreenshotMover.DISPLAY_DEST}",
+                    )
+                } else if (outcome.failed > 0) {
+                    Notify.screenshots(
+                        applicationContext,
+                        "Screenshot move failed",
+                        outcome.errors.firstOrNull() ?: "${outcome.failed} file(s) failed",
+                    )
+                }
             } catch (_: Throwable) {
                 // A failed pass is not worth retrying with backoff: the next
                 // content change triggers another one anyway.

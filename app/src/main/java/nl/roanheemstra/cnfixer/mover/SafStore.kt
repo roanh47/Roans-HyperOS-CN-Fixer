@@ -19,6 +19,10 @@ class SafStore(private val context: Context) {
     /** Background screenshot moving, while the service runs. */
     val moverAuto: Flow<Boolean> = context.cnDataStore.data.map { it[MOVER_AUTO] ?: false }
 
+    /** Per category notification switches, both on by default. */
+    val notifyScreenshots: Flow<Boolean> = context.cnDataStore.data.map { it[NOTIFY_SCREENSHOTS] ?: true }
+    val notifyGms: Flow<Boolean> = context.cnDataStore.data.map { it[NOTIFY_GMS] ?: true }
+
     /** How often the watcher checks DCIM/Screenshots, in seconds. */
     val moverIntervalSeconds: Flow<Int> = context.cnDataStore.data.map { it[MOVER_INTERVAL] ?: 30 }
 
@@ -39,6 +43,14 @@ class SafStore(private val context: Context) {
 
     suspend fun setMoverAuto(enabled: Boolean) {
         context.cnDataStore.edit { it[MOVER_AUTO] = enabled }
+    }
+
+    suspend fun setNotifyScreenshots(enabled: Boolean) {
+        context.cnDataStore.edit { it[NOTIFY_SCREENSHOTS] = enabled }
+    }
+
+    suspend fun setNotifyGms(enabled: Boolean) {
+        context.cnDataStore.edit { it[NOTIFY_GMS] = enabled }
     }
 
     suspend fun setMoverIntervalSeconds(seconds: Int) {
@@ -62,6 +74,8 @@ class SafStore(private val context: Context) {
         val ASSIST_OVERRIDE = booleanPreferencesKey("assistant_override")
         val MOVER_AUTO = booleanPreferencesKey("mover_auto")
         val MOVER_INTERVAL = intPreferencesKey("mover_interval")
+        val NOTIFY_SCREENSHOTS = booleanPreferencesKey("notify_screenshots")
+        val NOTIFY_GMS = booleanPreferencesKey("notify_gms")
         val SETUP_DONE = booleanPreferencesKey("setup_done")
         val LAST_FCM_RUN = longPreferencesKey("last_fcm_run")
         val LAST_FCM_OK = booleanPreferencesKey("last_fcm_ok")

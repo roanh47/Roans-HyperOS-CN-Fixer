@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import nl.roanheemstra.cnfixer.fcm.FcmEnforcer
 import nl.roanheemstra.cnfixer.fcm.FcmVerifier
 import nl.roanheemstra.cnfixer.mover.SafStore
+import nl.roanheemstra.cnfixer.notifications.Notify
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
 import java.util.concurrent.TimeUnit
 
@@ -28,7 +29,22 @@ class FcmRecoveryWorker(
         val store = SafStore(applicationContext)
         val checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
         val verified = checks.isNotEmpty() && checks.all { it.ok }
+        val wasOk = runCatching { store.lastFcmOk.first() }.getOrNull()
+        val hasRunBefore = runCatching { store.lastFcmRun.first() }.getOrDefault(0L) > 0L
         store.recordFcmRun(verified)
+
+        // Only when it flips from fine to broken, so this does not repeat every
+        // 15 minutes while the device stays broken.
+        if (!verified && (!hasRunBefore || wasOk != false)) {
+            val reason = checks.firstOrNull { !it.ok }
+                ?.let { "${it.label}: ${it.detail}" }
+                ?: "The protection check did not pass"
+            Notify.gms(
+                applicationContext,
+                "Google Play services protection is off",
+                reason,
+            )
+        }
 
         return if (report.failures().isEmpty() || verified) Result.success() else Result.retry()
     }
