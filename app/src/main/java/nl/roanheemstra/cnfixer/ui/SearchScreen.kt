@@ -64,7 +64,7 @@ fun SearchScreen() {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SectionCard("Status") {
@@ -75,7 +75,12 @@ fun SearchScreen() {
             )
             StatusRow(
                 label = "Default assistant",
-                value = assistant.ifBlank { "unknown" },
+                value = when {
+                    assistant.isBlank() -> "not set"
+                    assistant.contains("googlequicksearchbox") -> "Google"
+                    else -> assistant.substringAfter('/').substringAfterLast('.')
+                        .ifBlank { "custom" }
+                },
                 level = if (assistant.contains("googlequicksearchbox")) {
                     StatusLevel.OK
                 } else {

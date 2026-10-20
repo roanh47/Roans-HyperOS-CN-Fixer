@@ -29,11 +29,15 @@ enum class FixId(val title: String, val summary: String) {
     ),
     SCREENSHOTS(
         title = "Screenshot mover",
-        summary = "Moves DCIM/Screenshots to Pictures/Screenshots every 15 minutes",
+        summary = "Moves DCIM/Screenshots to Pictures/Screenshots in the background",
     ),
     CIRCLE_TO_SEARCH(
         title = "Circle to Search",
         summary = "Built in, trigger it from the app or from a Quick Settings tile",
+    ),
+    BUTTONS(
+        title = "Buttons",
+        summary = "Shows what the power and AI button send on this device",
     ),
 }
 

@@ -44,6 +44,7 @@ fun FixHost(fix: FixId, onBack: () -> Unit) {
             FixId.FCM -> FcmScreen()
             FixId.SCREENSHOTS -> MoverScreen()
             FixId.CIRCLE_TO_SEARCH -> SearchScreen()
+            FixId.BUTTONS -> ButtonsScreen()
         }
     }
 }
