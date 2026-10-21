@@ -94,19 +94,6 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
 
         ShizukuCard()
 
-        SectionCard("Setup") {
-            Text(
-                "Replays the setup guide. Nothing you configured here is reset, so it is safe " +
-                    "to use while debugging.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = onStartSetup, modifier = Modifier.fillMaxWidth()) {
-                Text("Start setup")
-            }
-        }
-
         SectionCard("Notifications") {
             StatusRow(
                 label = "Permission",
@@ -315,6 +302,19 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
                 onClick = { PowerHelper.openAutostart(context) },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Autostart settings") }
+        }
+
+        SectionCard("Setup") {
+            Text(
+                "Replays the setup guide. Nothing you configured here is reset, so it is safe " +
+                    "to use while debugging.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onStartSetup, modifier = Modifier.fillMaxWidth()) {
+                Text("Start setup")
+            }
         }
 
         SectionCard("What this app does") {

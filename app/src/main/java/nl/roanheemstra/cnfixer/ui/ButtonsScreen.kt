@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.roanheemstra.cnfixer.buttons.AiButton
+import nl.roanheemstra.cnfixer.buttons.AiButtonPage
 import nl.roanheemstra.cnfixer.buttons.ButtonProbe
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
 
@@ -145,6 +146,26 @@ fun ButtonsScreen() {
                 )
                 LogBox(aiLog)
             }
+
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        aiLog = withContext(Dispatchers.IO) { AiButtonPage.open() }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Open the HyperOS AI button page") }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "That page has two dropdowns: a short press and a long press, each with its own " +
+                    "action (None, Do Not Disturb, an app). Those actions live in HyperOS itself, " +
+                    "so the page is the honest remap: pick what you want there and the button " +
+                    "follows it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         SectionCard("Power button") {
@@ -154,11 +175,13 @@ fun ButtonsScreen() {
                 level = StatusLevel.OK,
             )
             Text(
-                "A short press is handled inside system_server before any app sees the key, so " +
-                    "changing it needs the input device to be taken over: root, or a native " +
-                    "helper that grabs it through the shell. Taking it over also stops the screen " +
-                    "from turning off by itself, which has to be rebuilt by hand. No shortcut for " +
-                    "that exists at app level.",
+                "A short press and a long press are both handled inside system_server before any " +
+                    "app sees the key. Changing them needs the input device to be taken over: " +
+                    "root, or a native helper that grabs it through the shell and re-injects every " +
+                    "other key. Taking it over also stops the screen from turning off by itself. " +
+                    "That is a real component, not a setting, so it is not faked here. The long " +
+                    "press currently only has Xiao AI's own switch (Wake method, Wake with Power " +
+                    "button), which is already off on this device.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

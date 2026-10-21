@@ -56,6 +56,10 @@
             android:name=".fcm.CheckNowReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".fcm.RestoreStatusReceiver"
+            android:exported="false" />
+
         <service
             android:name=".mover.MoverJobService"
             android:exported="true"

@@ -41,6 +41,8 @@ class FcmStatusService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
+    private var lastText: String = "Checking Google Play services..."
+    private var lastOk: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -62,6 +64,11 @@ class FcmStatusService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Comes back after a swipe: put the current state straight back.
+        if (intent?.action == ACTION_RESTORE) {
+            startInForeground(build(lastText, lastOk))
+            return START_STICKY
+        }
         startInForeground(build("Checking Google Play services...", false))
         if (job == null) {
             job = scope.launch { loop() }
@@ -93,6 +100,8 @@ class FcmStatusService : Service() {
                 val firstFailure = checks.firstOrNull { !it.ok }
                 firstFailure?.let { "${it.label}: ${it.detail}" } ?: "State unknown. Last check $stamp"
             }
+            lastText = detail
+            lastOk = ok
             update(build(detail, ok))
 
             delay(5 * 60_000L)
@@ -123,6 +132,14 @@ class FcmStatusService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .addAction(0, "Check now", checkNow)
+            .setDeleteIntent(
+                PendingIntent.getBroadcast(
+                    this,
+                    2,
+                    Intent(this, RestoreStatusReceiver::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+            )
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
@@ -155,6 +172,7 @@ class FcmStatusService : Service() {
 
     companion object {
         const val CHANNEL_STATUS = "cnfixer-status"
+        const val ACTION_RESTORE = "nl.roanheemstra.cnfixer.RESTORE_STATUS"
         private const val NOTIFICATION_ID = 4301
 
         fun start(context: Context) {
