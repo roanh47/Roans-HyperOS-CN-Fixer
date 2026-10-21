@@ -31,6 +31,21 @@ object KeyGrabber {
 
     fun isRunning(): Boolean = process?.isAlive == true
 
+    /**
+     * Shizuku's own API keeps newProcess private, so it is reached through
+     * reflection. It is the documented way to run a binary as the shell user.
+     */
+    private fun newProcess(command: Array<String>): Process? = runCatching {
+        val method = Shizuku::class.java.getDeclaredMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java,
+        )
+        method.isAccessible = true
+        method.invoke(null, command, null, null) as Process
+    }.onFailure { Log.w(TAG, "newProcess failed: ${it.message}") }.getOrNull()
+
     /** Path of the helper inside the APK's native library directory. */
     private fun helperPath(context: Context): String =
         File(context.applicationInfo.nativeLibraryDir, "libkeygd.so").absolutePath
@@ -73,9 +88,7 @@ object KeyGrabber {
             return false
         }
 
-        val started = runCatching {
-            Shizuku.newProcess(arrayOf(helper, device), null, null)
-        }.getOrNull() ?: return false
+        val started = newProcess(arrayOf(helper, device)) ?: return false
 
         process = started
         reader = Thread {
