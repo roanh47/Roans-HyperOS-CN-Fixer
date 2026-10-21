@@ -31,6 +31,19 @@ object FcmVerifier {
         checks.firstOrNull { it.required && !it.ok }
 
     fun run(): List<Check> {
+        // Without the shell nothing can be read, and saying "not installed"
+        // would blame the device for the app's own missing access.
+        if (!ShellRunner.hasPermission()) {
+            return listOf(
+                Check(
+                    label = "Shizuku access",
+                    ok = false,
+                    detail = "Shizuku is not running or access was not granted, " +
+                        "so nothing could be read. This is not a device problem.",
+                )
+            )
+        }
+
         val checks = mutableListOf<Check>()
 
         val packages = ShellRunner.exec("pm", "list", "packages", MilletList.GMS)
@@ -39,10 +52,10 @@ object FcmVerifier {
         checks += Check(
             label = "Google Play services installed",
             ok = present,
-            detail = if (present) {
-                "com.google.android.gms is present"
-            } else {
-                "not installed, FCM cannot work on this ROM without GMS"
+            detail = when {
+                present -> "com.google.android.gms is present"
+                !packages.ok -> "could not read the package list: ${packages.summary()}"
+                else -> "not installed, FCM cannot work on this ROM without GMS"
             },
         )
 
@@ -51,7 +64,11 @@ object FcmVerifier {
         checks += Check(
             label = "GMS exempt from PowerKeeper",
             ok = inList,
-            detail = if (inList) "${MilletList.KEY} contains GMS" else exempt.summary(),
+            detail = when {
+                inList -> "${MilletList.KEY} contains GMS"
+                !exempt.ok -> "could not read ${MilletList.KEY}: ${exempt.summary()}"
+                else -> "${MilletList.KEY} does not contain GMS"
+            },
         )
 
         val runAny = ShellRunner.exec("cmd", "appops", "get", MilletList.GMS, "RUN_ANY_IN_BACKGROUND")

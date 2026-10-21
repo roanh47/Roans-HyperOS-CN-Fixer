@@ -126,7 +126,11 @@ class FcmStatusService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(
-                if (ok) "Google Play services: protected" else "Google Play services: check failed"
+                when {
+                    ok -> "Google Play services: protected"
+                    text.startsWith("Shizuku") -> "CN Fixer: Shizuku is not connected"
+                    else -> "Google Play services: check failed"
+                }
             )
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
