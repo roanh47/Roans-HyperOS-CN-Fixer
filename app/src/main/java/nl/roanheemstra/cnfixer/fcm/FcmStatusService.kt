@@ -91,13 +91,13 @@ class FcmStatusService : Service() {
             }
 
             val checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
-            val ok = checks.isNotEmpty() && checks.all { it.ok }
+            val ok = FcmVerifier.isVerified(checks)
             val stamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
             val detail = if (ok) {
                 "Protected. Last check $stamp"
             } else {
-                val firstFailure = checks.firstOrNull { !it.ok }
+                val firstFailure = FcmVerifier.firstFailure(checks)
                 firstFailure?.let { "${it.label}: ${it.detail}" } ?: "State unknown. Last check $stamp"
             }
             lastText = detail

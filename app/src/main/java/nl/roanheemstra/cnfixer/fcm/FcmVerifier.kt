@@ -11,7 +11,24 @@ import nl.roanheemstra.cnfixer.shizuku.ShellRunner
  */
 object FcmVerifier {
 
-    data class Check(val label: String, val ok: Boolean, val detail: String)
+    /**
+     * required = false means the value says something about the ROM but cannot
+     * break FCM by itself, so it must not paint a working device as failed.
+     */
+    data class Check(
+        val label: String,
+        val ok: Boolean,
+        val detail: String,
+        val required: Boolean = true,
+    )
+
+    fun isVerified(checks: List<Check>): Boolean {
+        val required = checks.filter { it.required }
+        return required.isNotEmpty() && required.all { it.ok }
+    }
+
+    fun firstFailure(checks: List<Check>): Check? =
+        checks.firstOrNull { it.required && !it.ok }
 
     fun run(): List<Check> {
         val checks = mutableListOf<Check>()
@@ -43,6 +60,7 @@ object FcmVerifier {
             label = "GMS may run in the background",
             ok = runAnyAllowed,
             detail = runAny.summary(),
+            required = false,
         )
 
         val autostart = ShellRunner.exec(
@@ -53,6 +71,7 @@ object FcmVerifier {
             label = "GMS autostart allowed",
             ok = autostartAllowed,
             detail = autostart.summary(),
+            required = false,
         )
 
         return checks

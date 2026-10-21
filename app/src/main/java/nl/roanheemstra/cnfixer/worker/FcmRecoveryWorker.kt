@@ -28,7 +28,7 @@ class FcmRecoveryWorker(
         // Record what the device actually says, not just that commands ran.
         val store = SafStore(applicationContext)
         val checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
-        val verified = checks.isNotEmpty() && checks.all { it.ok }
+        val verified = FcmVerifier.isVerified(checks)
         val wasOk = runCatching { store.lastFcmOk.first() }.getOrNull()
         val hasRunBefore = runCatching { store.lastFcmRun.first() }.getOrDefault(0L) > 0L
         store.recordFcmRun(verified)

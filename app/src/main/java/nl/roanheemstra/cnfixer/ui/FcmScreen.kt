@@ -71,6 +71,9 @@ fun FcmScreen() {
     LaunchedEffect(Unit) {
         ShizukuState.refresh()
         refreshExemptList()
+        if (ShizukuState.granted) {
+            checks = withContext(Dispatchers.IO) { runCatching { FcmVerifier.run() }.getOrDefault(emptyList()) }
+        }
     }
 
     Column(
@@ -89,6 +92,8 @@ fun FcmScreen() {
             )
         }
 
+        val failingRequired = checks.firstOrNull { it.required && !it.ok }
+
         SectionCard("Protection") {
             StatusRow(
                 label = "Google Play services",
@@ -105,6 +110,13 @@ fun FcmScreen() {
                 },
                 level = if (lastRun > 0L && lastOk) StatusLevel.OK else StatusLevel.WARN,
             )
+            if (failingRequired != null) {
+                Text(
+                    "Fails on: ${failingRequired.label}. ${failingRequired.detail}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Text(
                 "HyperOS reverts these values after every reboot and after an OTA. That is why " +
                     "the protection is re-applied on a schedule instead of once, and why the date " +
@@ -136,8 +148,7 @@ fun FcmScreen() {
                         val report = withContext(Dispatchers.IO) { FcmEnforcer.runCorePass() }
                         // The status badge follows the device state, not the exit codes.
                         val verified = withContext(Dispatchers.IO) {
-                            val results = FcmVerifier.run()
-                            results.isNotEmpty() && results.all { it.ok }
+                            FcmVerifier.isVerified(FcmVerifier.run())
                         }
                         withContext(Dispatchers.IO) { store.recordFcmRun(verified) }
                         log = buildString {
@@ -148,6 +159,9 @@ fun FcmScreen() {
                                 append(step.result.summary())
                                 append('\n')
                             }
+                        }
+                        checks = withContext(Dispatchers.IO) {
+                            runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
                         }
                         refreshExemptList()
                         ShizukuState.refresh()
@@ -220,11 +234,23 @@ fun FcmScreen() {
                 checks.forEach { check ->
                     StatusRow(
                         label = check.label,
-                        value = if (check.ok) "pass" else "fail",
-                        level = if (check.ok) StatusLevel.OK else StatusLevel.ERROR,
+                        value = when {
+                            check.ok -> "pass"
+                            check.required -> "fail"
+                            else -> "note"
+                        },
+                        level = when {
+                            check.ok -> StatusLevel.OK
+                            check.required -> StatusLevel.ERROR
+                            else -> StatusLevel.WARN
+                        },
                     )
                     Text(
-                        check.detail,
+                        if (check.required) {
+                            check.detail
+                        } else {
+                            "informational, does not block push: ${check.detail}"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
