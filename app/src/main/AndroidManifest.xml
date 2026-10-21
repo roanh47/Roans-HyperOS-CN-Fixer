@@ -44,6 +44,19 @@
         </activity>
 
         <service
+            android:name=".buttons.KeyRemapService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Takes over the power key so the user can remap it" />
+        </service>
+
+        <receiver
+            android:name=".buttons.StopRemapReceiver"
+            android:exported="false" />
+
+        <service
             android:name=".fcm.FcmStatusService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

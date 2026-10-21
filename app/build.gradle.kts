@@ -8,12 +8,31 @@ android {
     namespace = "nl.roanheemstra.cnfixer"
     compileSdk = 36
 
+    /** Native helper that takes over an input device, see src/main/cpp. */
+    ndkVersion = "27.0.12077973"
+
     defaultConfig {
         applicationId = "nl.roanheemstra.cnfixer"
         minSdk = 31
         targetSdk = 36
-        versionCode = 20
-        versionName = "0.8.7"
+        versionCode = 21
+        versionName = "0.9.0"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=none"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     /**

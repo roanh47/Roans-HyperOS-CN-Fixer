@@ -56,6 +56,14 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
+          # The key grabber is compiled by CMake, so the NDK must be present.
+          NDK_VERSION="27.0.12077973"
+          if [ ! -d "$ANDROID_HOME/ndk/$NDK_VERSION" ]; then
+            echo "Installing NDK $NDK_VERSION"
+            yes | "$SDKMANAGER" "ndk;$NDK_VERSION" > /dev/null
+          fi
+          ls "$ANDROID_HOME/ndk"
+
       # Every release has to be signed with the same key, otherwise Android
       # refuses to install it over the previous one. The keystore lives in
       # repository secrets and never in the tree.
