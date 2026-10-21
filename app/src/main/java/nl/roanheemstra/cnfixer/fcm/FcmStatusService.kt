@@ -90,15 +90,27 @@ class FcmStatusService : Service() {
                 continue
             }
 
-            val checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
+            var checks = runCatching { FcmVerifier.run() }.getOrDefault(emptyList())
+            var repaired = false
+
+            // Do not report a state that can be fixed: repair first, then read again.
+            if (FcmVerifier.isVerified(checks).not()) {
+                runCatching { FcmEnforcer.runCorePass() }
+                checks = runCatching { FcmVerifier.run() }.getOrDefault(checks)
+                repaired = true
+            }
+
             val ok = FcmVerifier.isVerified(checks)
             val stamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-            val detail = if (ok) {
-                "Protected. Last check $stamp"
-            } else {
-                val firstFailure = FcmVerifier.firstFailure(checks)
-                firstFailure?.let { "${it.label}: ${it.detail}" } ?: "State unknown. Last check $stamp"
+            val detail = when {
+                ok && repaired -> "Repaired and verified at $stamp"
+                ok -> "Protected. Last check $stamp"
+                else -> {
+                    val firstFailure = FcmVerifier.firstFailure(checks)
+                    firstFailure?.let { "${it.label}: ${it.detail}" }
+                        ?: "State unknown. Last check $stamp"
+                }
             }
             lastText = detail
             lastOk = ok
