@@ -86,7 +86,9 @@ class FcmStatusService : Service() {
 
             if (!ShellRunner.hasPermission()) {
                 update(build("Shizuku access missing, cannot read the state", false))
-                delay(30_000L)
+                // Wake the device at the normal cadence, not every 30 seconds,
+                // because nothing changes until the user starts Shizuku.
+                delay(5 * 60_000L)
                 continue
             }
 

@@ -12,8 +12,8 @@ android {
         applicationId = "nl.roanheemstra.cnfixer"
         minSdk = 31
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.8.6"
+        versionCode = 20
+        versionName = "0.8.7"
     }
 
     /**
