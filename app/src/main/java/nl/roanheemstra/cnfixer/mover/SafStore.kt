@@ -23,6 +23,9 @@ class SafStore(private val context: Context) {
     val notifyScreenshots: Flow<Boolean> = context.cnDataStore.data.map { it[NOTIFY_SCREENSHOTS] ?: true }
     val notifyGms: Flow<Boolean> = context.cnDataStore.data.map { it[NOTIFY_GMS] ?: true }
 
+    /** Persistent notification with the live FCM state. */
+    val statusNotification: Flow<Boolean> = context.cnDataStore.data.map { it[STATUS_NOTIFICATION] ?: true }
+
     /** How often the watcher checks DCIM/Screenshots, in seconds. */
     val moverIntervalSeconds: Flow<Int> = context.cnDataStore.data.map { it[MOVER_INTERVAL] ?: 30 }
 
@@ -53,6 +56,10 @@ class SafStore(private val context: Context) {
         context.cnDataStore.edit { it[NOTIFY_GMS] = enabled }
     }
 
+    suspend fun setStatusNotification(enabled: Boolean) {
+        context.cnDataStore.edit { it[STATUS_NOTIFICATION] = enabled }
+    }
+
     suspend fun setMoverIntervalSeconds(seconds: Int) {
         context.cnDataStore.edit { it[MOVER_INTERVAL] = seconds }
     }
@@ -76,6 +83,7 @@ class SafStore(private val context: Context) {
         val MOVER_INTERVAL = intPreferencesKey("mover_interval")
         val NOTIFY_SCREENSHOTS = booleanPreferencesKey("notify_screenshots")
         val NOTIFY_GMS = booleanPreferencesKey("notify_gms")
+        val STATUS_NOTIFICATION = booleanPreferencesKey("status_notification")
         val SETUP_DONE = booleanPreferencesKey("setup_done")
         val LAST_FCM_RUN = longPreferencesKey("last_fcm_run")
         val LAST_FCM_OK = booleanPreferencesKey("last_fcm_ok")

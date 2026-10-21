@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import nl.roanheemstra.cnfixer.fcm.FcmStatusService
 import nl.roanheemstra.cnfixer.mover.MoverScheduler
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShellRunner
@@ -36,6 +37,9 @@ class BootReceiver : BroadcastReceiver() {
                 // costs nothing and covers a job that was cancelled by the system.
                 if (SafStore(appContext).moverAuto.first()) {
                     MoverScheduler.schedule(appContext)
+                }
+                if (SafStore(appContext).statusNotification.first()) {
+                    FcmStatusService.start(appContext)
                 }
             } catch (_: Throwable) {
                 // Best effort: the periodic worker retries.

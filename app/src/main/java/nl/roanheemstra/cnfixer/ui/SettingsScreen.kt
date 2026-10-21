@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.roanheemstra.cnfixer.BuildConfig
 import nl.roanheemstra.cnfixer.PowerHelper
+import nl.roanheemstra.cnfixer.fcm.FcmStatusService
 import nl.roanheemstra.cnfixer.fcm.NotificationTest
 import nl.roanheemstra.cnfixer.mover.SafStore
 import nl.roanheemstra.cnfixer.shizuku.ShizukuState
@@ -60,6 +61,7 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
 
     val notifyScreenshots by store.notifyScreenshots.collectAsState(initial = true)
     val notifyGms by store.notifyGms.collectAsState(initial = true)
+    val statusNotification by store.statusNotification.collectAsState(initial = true)
 
     var checking by remember { mutableStateOf(false) }
     var updateMessage by remember { mutableStateOf("") }
@@ -141,6 +143,27 @@ fun SettingsScreen(onStartSetup: () -> Unit) {
                 Switch(
                     checked = notifyGms,
                     onCheckedChange = { scope.launch { store.setNotifyGms(it) } },
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Live status", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Persistent notification with the current state, cannot be swiped away",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = statusNotification,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            store.setStatusNotification(enabled)
+                            if (enabled) FcmStatusService.start(context) else FcmStatusService.stop(context)
+                        }
+                    },
                 )
             }
 
